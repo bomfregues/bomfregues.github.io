@@ -123,7 +123,7 @@ const Api = {
   async criarPromocao(dados) {
     let imagemFinalUrl = "";
 
-    // 1. Se houver imagem em Base64, faz o upload para o Supabase Storage
+    // 1. Faz o upload da imagem se houver
     if (dados.imagem_base64 && dados.imagem_base64.startsWith('data:image')) {
       const base64Data = dados.imagem_base64.replace(/^data:image\/\w+;base64,/, '');
       const bytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
@@ -139,10 +139,20 @@ const Api = {
       }
     }
 
-    // 2. Insere a promoção na tabela 'promocoes' do Supabase
+    // 2. Busca o ID UUID do comércio ativo para satisfazer a restrição da tabela
+    const { data: comercioData } = await supabaseClient
+      .from('comercios')
+      .select('id')
+      .eq('slug', dados.slug)
+      .single();
+
+    if (!comercioData) throw new Error("Estabelecimento não encontrado para vincular a promoção.");
+
+    // 3. Insere a promoção preenchendo tanto o ID quanto o Slug
     const { data, error } = await supabaseClient
       .from('promocoes')
       .insert([{
+        comercio_id: comercioData.id,
         comercio_slug: dados.slug,
         titulo: dados.titulo,
         descricao: dados.descricao,
@@ -153,7 +163,7 @@ const Api = {
 
     if (error) throw error;
 
-    // 3. Dispara o push automaticamente para os clientes inscritos nesta loja
+    // 4. Dispara o push automaticamente para os clientes inscritos nesta loja
     await this.dispararPushParaLoja(dados.slug, dados.titulo, dados.descricao, dados.app_url);
 
     return data;
