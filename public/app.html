@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Carregando...</title>
+
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="theme-color" content="#ffffff">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="css/global.css">
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+
+  <style>
+    :root {
+      --cor-texto-header: #ffffff;
+      --cor-subtexto-header: rgba(255,255,255,0.85);
+      --borda-header: none;
+      --cor-primaria: #000000;
+      --cor-secundaria: #ffffff;
+      --cor-destaque: #b91c1c;
+      --cor-fundo: #f8fafc;
+      --cor-texto: #1c1917;
+      --cor-subtexto: #78716c;
+      --cor-borda: #e7e5e4;
+    }
+
+    * { 
+      box-sizing: border-box; 
+      margin: 0; 
+      padding: 0; 
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif; 
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background-color: var(--cor-fundo) !important;
+      color: var(--cor-texto);
+      min-height: 100vh;
+      padding-bottom: 96px !important;
+      margin: 0 !important;
+    }
+
+    .tab-view { display: none; }
+    .tab-view.active { display: block; }
+
+    /* Header com Logo Livre */
+    .top-header {
+      background: var(--cor-primaria) !important;
+      padding: 24px 20px 36px 20px !important;
+      border-radius: 0 0 28px 28px !important;
+      display: flex;
+      align-items: center;
+      border-bottom: var(--borda-header) !important;
+      box-shadow: none !important;
+      position: relative;
+      z-index: 10;
+      margin-bottom: 0 !important;
+    }
+
+    .clean-logo-wrap {
+      width: 52px;
+      height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      background: transparent !important;
+      border: none !important;
+    }
+
+    .clean-logo-wrap img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      display: block;
+      background: transparent !important;
+    }
+
+    .header-text-group { margin-left: 14px; }
+    .header-title-clean { 
+      font-size: 17px; 
+      font-weight: 800; 
+      color: var(--cor-texto-header) !important; 
+      line-height: 1.2; 
+    }
+    .header-sub-clean { 
+      font-size: 11px; 
+      color: var(--cor-subtexto-header) !important; 
+      margin-top: 3px; 
+    }
+
+    /* Blindagem contra regras externas do global.css */
+    .container, .container-app, .container-app-shield {
+      max-width: 480px !important;
+      margin: 0 auto !important;
+      padding: 0 16px !important;
+      position: relative;
+      float: none !important;
+    }
+
+    /* Área Flutuante na junção do Header */
+    .floating-stack-area {
+      margin-top: -20px;
+      margin-bottom: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      position: relative;
+      z-index: 30;
+      width: 100%;
+    }
+
+    .btn-pill-floating {
+      border-radius: 9999px;
+      padding: 13px 20px;
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+      width: 100%;
+      transition: transform 0.15s ease, background-color 0.15s ease;
+      text-decoration: none;
+    }
+
+    .btn-pill-floating:active {
+      transform: scale(0.98);
+    }
+
+    .btn-install-floating {
+      background: #ffffff;
+      color: #1c1917;
+      border: 1.5px solid var(--cor-borda);
+    }
+
+    .btn-push-floating {
+      background: #ffffff;
+      color: var(--cor-destaque);
+      border: 1.5px solid var(--cor-borda);
+    }
+
+    /* Banner Flutuante de CPF */
+    .cpf-floating-card {
+      background: #ffffff;
+      border: 1.5px solid var(--cor-borda);
+      border-radius: 18px;
+      padding: 14px 18px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+      display: none;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .cpf-floating-title {
+      font-size: 12px;
+      color: var(--cor-subtexto);
+      line-height: 1.4;
+    }
+
+    .cpf-floating-action {
+      background: none;
+      border: none;
+      color: var(--cor-destaque);
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+      text-align: left;
+      padding: 2px 0 0 0;
+      text-decoration: underline;
+    }
+
+    /* Espaçador Dinâmico Blindado */
+    .section-spacer-top {
+      height: 28px;
+      width: 100%;
+    }
+
+    /* Título das Seções */
+    .headline-bar-fixed {
+      font-size: 18px !important;
+      font-weight: 800 !important;
+      color: var(--cor-texto) !important;
+      margin-top: 0 !important;
+      margin-bottom: 16px !important;
+      display: block !important;
+      letter-spacing: -0.4px;
+    }
+
+    /* Cartão de Pontos */
+    .points-hub-card {
+      background: #ffffff;
+      border: 1px solid var(--cor-borda);
+      border-radius: 24px;
+      padding: 24px 20px;
+      text-align: center;
+      margin-bottom: 24px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+    }
+
+    .points-total {
+      font-size: 52px;
+      font-weight: 800;
+      color: var(--cor-texto);
+      line-height: 1;
+      display: flex;
+      justify-content: center;
+      align-items: baseline;
+      gap: 6px;
+    }
+
+    .points-total span {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--cor-destaque);
+    }
+
+    .points-label-sub {
+      font-size: 11px;
+      color: var(--cor-subtexto);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin: 8px 0 22px;
+    }
+
+    .btn-scan-trigger {
+      width: 100%;
+      background: var(--cor-destaque);
+      color: #ffffff;
+      border: none;
+      border-radius: 14px;
+      padding: 14px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    #reader-container {
+      display: none;
+      margin-top: 16px;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 2px solid var(--cor-destaque);
+      background: #000;
+    }
+
+    #reader video { width: 100% !important; object-fit: cover !important; }
+
+    /* Vitrines */
+    .showcase-card {
+      background: #ffffff;
+      border-radius: 20px;
+      overflow: hidden;
+      margin-bottom: 20px;
+      border: 1px solid var(--cor-borda);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+    }
+
+    .showcase-media {
+      width: 100%;
+      height: 180px;
+      object-fit: cover;
+      display: block;
+      background: #f1f5f9;
+    }
+
+    .showcase-info { padding: 18px; }
+
+    .showcase-badge {
+      display: inline-block;
+      background: var(--cor-secundaria);
+      color: var(--cor-destaque);
+      font-size: 10px;
+      font-weight: 800;
+      padding: 4px 8px;
+      border-radius: 6px;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+      border: 1px solid rgba(0,0,0,0.06);
+    }
+
+    .showcase-title { font-size: 16px; font-weight: 800; color: var(--cor-texto); margin-bottom: 6px; line-height: 1.3; }
+    .showcase-desc { font-size: 13px; color: var(--cor-subtexto); line-height: 1.4; margin-bottom: 12px; }
+
+    .showcase-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #f1f5f9;
+    }
+
+    .cost-badge {
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--cor-destaque);
+      background: var(--cor-secundaria);
+      padding: 6px 12px;
+      border-radius: 8px;
+      border: 1px solid rgba(0,0,0,0.06);
+    }
+
+    .btn-claim {
+      background: var(--cor-primaria);
+      color: var(--cor-texto-header);
+      border: 1px solid rgba(0,0,0,0.1);
+      padding: 9px 18px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    /* Modal Tutorial iOS */
+    .ios-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 999; }
+    .ios-sheet {
+      position: fixed; bottom: 0; left: 0; right: 0; background: #ffffff;
+      border-radius: 24px 24px 0 0; padding: 26px 20px 32px; max-width: 440px; margin: 0 auto;
+      z-index: 1000; transform: translateY(100%); transition: transform 0.3s ease-out;
+    }
+    .ios-sheet.active { transform: translateY(0); }
+    .ios-step { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px; }
+    .ios-step-num {
+      background: #f1f5f9; color: #1c1917; font-weight: 800; font-size: 12px;
+      width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+  </style>
+
+  <script src="js/api.js"></script>
+  <script src="js/theme.js"></script>
+  <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+
+  <script>
+    window.OneSignalDeferred = window.OneSignalDeferred || [];
+    OneSignalDeferred.push(async function(OneSignal) {
+      try {
+        await OneSignal.init({
+          appId: "3848f19b-f5ef-45a5-a307-ad0a89725eb1",
+          serviceWorkerParam: { scope: "/" },
+          serviceWorkerPath: "OneSignalSDKWorker.js",
+          welcomeNotification: { disable: true },
+          notifyButton: { enable: false },
+          allowLocalhostAsSecureOrigin: true
+        });
+
+        if (typeof COMERCIO_SLUG !== 'undefined' && COMERCIO_SLUG) {
+          await OneSignal.User.addTag("comercio_slug", COMERCIO_SLUG);
+        }
+
+        atualizarCamadaInterface();
+        OneSignal.User.PushSubscription.addEventListener("change", atualizarCamadaInterface);
+      } catch (e) {
+        console.warn("OneSignal init:", e);
+      }
+    });
+
+    let deferredPrompt = null;
+    const isIos = () => /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
+    const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      atualizarCamadaInterface();
+    });
+
+    function atualizarCamadaInterface() {
+      const btnInstall = document.getElementById('btn-install-action');
+      const btnPush = document.getElementById('btn-push-action');
+      const alertaCpf = document.getElementById('alerta-vincular');
+      const spacer = document.getElementById('section-spacer');
+
+      const standalone = isStandalone();
+
+      // Botão de Instalação: Exibido em qualquer navegador fora de standalone
+      if (!standalone) {
+        btnInstall.style.display = 'flex';
+      } else {
+        btnInstall.style.display = 'none';
+      }
+
+      // Botão de Notificação: Exibido se ainda não concedida
+      let pushHabilitado = false;
+      if ("Notification" in window && Notification.permission === "granted") {
+        pushHabilitado = true;
+      }
+      if (window.OneSignal?.User?.PushSubscription?.optedIn) {
+        pushHabilitado = true;
+      }
+
+      if (!pushHabilitado) {
+        btnPush.style.display = 'flex';
+      } else {
+        btnPush.style.display = 'none';
+      }
+
+      // Controle do espaçador dinâmico: garante distância constante do header
+      const algumCardFlutuante = (btnInstall.style.display === 'flex') || 
+                                 (btnPush.style.display === 'flex') || 
+                                 (alertaCpf.style.display === 'flex');
+
+      if (!algumCardFlutuante) {
+        spacer.style.height = '36px';
+      } else {
+        spacer.style.height = '14px';
+      }
+    }
+
+    async function acionarInstalacao() {
+      if (isIos()) {
+        document.getElementById('iosOverlay').style.display = 'block';
+        setTimeout(() => document.getElementById('iosSheet').classList.add('active'), 10);
+      } else if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        deferredPrompt = null;
+        if (outcome === 'accepted') {
+          document.getElementById('btn-install-action').style.display = 'none';
+          atualizarCamadaInterface();
+        }
+      } else {
+        alert("Para instalar este app, toque nos três pontos do navegador e selecione 'Adicionar à tela inicial' ou 'Instalar aplicativo'.");
+      }
+    }
+
+    function fecharModalIos() {
+      document.getElementById('iosSheet').classList.remove('active');
+      setTimeout(() => document.getElementById('iosOverlay').style.display = 'none', 300);
+    }
+
+    async function ativarPush() {
+      const btn = document.getElementById('btn-push-action');
+      if (btn) {
+        btn.innerText = "Solicitando...";
+        btn.disabled = true;
+      }
+
+      try {
+        if (!("Notification" in window)) {
+          throw new Error("Seu navegador não suporta notificações web.");
+        }
+
+        if (Notification.permission === "denied") {
+          throw new Error("As notificações estão bloqueadas nas configurações do navegador para este site.");
+        }
+
+        const perm = await Notification.requestPermission();
+        if (perm !== "granted") {
+          throw new Error("Permissão não concedida pelo usuário.");
+        }
+
+        window.OneSignalDeferred.push(async function(OneSignal) {
+          try {
+            await OneSignal.Notifications.requestPermission();
+            if (typeof COMERCIO_SLUG !== 'undefined') {
+              await OneSignal.User.addTag("comercio_slug", COMERCIO_SLUG);
+            }
+            if (OneSignal.User.PushSubscription) {
+              await OneSignal.User.PushSubscription.optIn();
+            }
+          } catch (e) {
+            console.warn("OneSignal optIn:", e);
+          }
+        });
+
+        alert("✅ Notificações ativadas com sucesso!");
+      } catch (err) {
+        alert(err.message || "Não foi possível ativar as notificações.");
+      } finally {
+        if (btn) {
+          btn.innerText = "Receber avisos de promoções";
+          btn.disabled = false;
+        }
+        atualizarCamadaInterface();
+      }
+    }
+  </script>
+</head>
+<body>
+
+  <!-- Header Livre -->
+  <header class="top-header">
+    <div class="clean-logo-wrap">
+      <img class="dinamico-logo" src="" alt="Logo" style="display:none;" id="logo-img-header">
+    </div>
+    <div class="header-text-group">
+      <div class="header-title-clean dinamico-nome">Carregando...</div>
+      <div class="header-sub-clean">Clube de Vantagens & Ofertas</div>
+    </div>
+  </header>
+
+  <div class="container-app-shield">
+    <!-- Camada Flutuante Entre o Header e o Conteúdo -->
+    <div class="floating-stack-area">
+      <!-- Botão 1: Instalar Aplicativo -->
+      <button id="btn-install-action" class="btn-pill-floating btn-install-floating" onclick="acionarInstalacao()">
+        Instalar aplicativo no celular
+      </button>
+
+      <!-- Botão 2: Receber Avisos -->
+      <button id="btn-push-action" class="btn-pill-floating btn-push-floating" onclick="ativarPush()">
+        Receber avisos de promoções
+      </button>
+
+      <!-- Card 3: Recuperação de CPF -->
+      <div id="alerta-vincular" class="cpf-floating-card">
+        <div class="cpf-floating-title">
+          Pontos salvos no celular. Vincule seu CPF para não perder seu saldo caso troque de aparelho.
+        </div>
+        <button class="cpf-floating-action" onclick="vincularCpfModal()">Vincular meu CPF agora</button>
+      </div>
+    </div>
+
+    <!-- Espaçador Blindado contra colapsos de margem do CSS -->
+    <div class="section-spacer-top" id="section-spacer"></div>
+
+    <!-- ABA 1: Ofertas -->
+    <div id="view-promos" class="tab-view active">
+      <h2 class="headline-bar-fixed">Ofertas da Loja</h2>
+      <div id="lista-promos">Carregando ofertas...</div>
+    </div>
+
+    <!-- ABA 2: Fidelidade -->
+    <div id="view-fidelidade" class="tab-view">
+      <div class="points-hub-card">
+        <div class="points-total" id="user-pontos">-- <span>pts</span></div>
+        <div class="points-label-sub">Saldo Disponível</div>
+
+        <button class="btn-scan-trigger" onclick="iniciarScanner()" id="btn-scan">
+          Escanear QR Code da Nota Fiscal
+        </button>
+
+        <div id="reader-container">
+          <div id="reader"></div>
+          <button style="margin-top:12px; width:100%; padding:10px; background:#fff; border:1px solid var(--cor-borda); border-radius:10px; font-weight:700;" onclick="pararScanner()">Cancelar Leitura</button>
+        </div>
+      </div>
+
+      <h2 class="headline-bar-fixed">Catálogo de Resgate</h2>
+      <div id="lista-premios">Carregando prêmios...</div>
+    </div>
+  </div>
+
+  <!-- Bottom Navigation -->
+  <nav class="bottom-nav">
+    <a class="nav-item active" id="nav-btn-promos" onclick="navegarAba('view-promos', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+      Ofertas
+    </a>
+    <a class="nav-item" id="nav-btn-fidelidade" onclick="navegarAba('view-fidelidade', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 12 20 22 4 22 4 12"></polyline><rect x="2" y="7" width="20" height="5"></rect><line x1="12" y1="22" x2="12" y2="7"></line></svg>
+      Fidelidade
+    </a>
+  </nav>
+
+  <!-- Modal Tutorial iPhone (Safari) -->
+  <div class="ios-overlay" id="iosOverlay" onclick="fecharModalIos()"></div>
+  <div class="ios-sheet" id="iosSheet">
+    <h3 style="font-size:16px; font-weight:800; text-align:center; margin-bottom:4px;">Instalar no iPhone</h3>
+    <p style="font-size:12px; color:var(--cor-subtexto); text-align:center; margin-bottom:20px;">Siga os 2 passos abaixo no Safari:</p>
+    
+    <div class="ios-step">
+      <div class="ios-step-num">1</div>
+      <div style="font-size:13px; color:#1c1917; line-height:1.4;">
+        Na barra inferior do Safari, toque no ícone de <strong>Compartilhar</strong> (o quadrado com uma seta para cima).
+      </div>
+    </div>
+
+    <div class="ios-step">
+      <div class="ios-step-num">2</div>
+      <div style="font-size:13px; color:#1c1917; line-height:1.4;">
+        Role as opções e selecione <strong>Adicionar à Tela de Início</strong>.
+      </div>
+    </div>
+
+    <button style="width:100%; padding:13px; background:#1c1917; color:#fff; border:none; border-radius:12px; font-weight:700; margin-top:8px; cursor:pointer;" onclick="fecharModalIos()">
+      Entendido
+    </button>
+  </div>
+
+  <script>
+    const FOTO_PADRAO = "https://images.unsplash.com/photo-1517256064527-09c73fc73e38?w=500&q=80";
+    let html5QrcodeScanner = null;
+    let usuarioTemCpfVinculado = false;
+
+    function navegarAba(viewId, btn) {
+      document.querySelectorAll('.tab-view').forEach(v => v.classList.remove('active'));
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById(viewId).classList.add('active');
+
+      const alertaCpf = document.getElementById('alerta-vincular');
+      if (viewId === 'view-fidelidade' && !usuarioTemCpfVinculado) {
+        alertaCpf.style.display = 'flex';
+      } else {
+        alertaCpf.style.display = 'none';
+      }
+      atualizarCamadaInterface();
+    }
+
+    async function carregarOfertas() {
+      const box = document.getElementById('lista-promos');
+      try {
+        const promocoes = await Api.listarPromocoes(COMERCIO_SLUG);
+        if (!promocoes.length) {
+          box.innerHTML = `<div class="showcase-card" style="padding:28px; text-align:center; font-size:13px; color:var(--cor-subtexto);">Nenhuma promoção ativa no momento.</div>`;
+          return;
+        }
+
+        box.innerHTML = promocoes.map(p => `
+          <div class="showcase-card">
+            <img class="showcase-media" src="${p.imagem_url || FOTO_PADRAO}">
+            <div class="showcase-info">
+              <span class="showcase-badge">Oferta</span>
+              <h4 class="showcase-title">${p.titulo}</h4>
+              <p class="showcase-desc">${p.descricao}</p>
+              <div style="font-size:11px; font-weight:700; color:var(--cor-destaque);">${p.validade}</div>
+            </div>
+          </div>
+        `).join('');
+      } catch (err) { box.innerHTML = `<p style="color:#ef4444; font-size:12px;">${err.message}</p>`; }
+    }
+
+    async function carregarPontos() {
+      try {
+        const data = await Api.obterPontos(COMERCIO_SLUG, MEU_DEVICE_ID);
+        document.getElementById('user-pontos').innerHTML = `${data.pontos} <span>pts</span>`;
+        if (data.cpf) {
+          usuarioTemCpfVinculado = true;
+          document.getElementById('alerta-vincular').style.display = 'none';
+          atualizarCamadaInterface();
+        }
+      } catch (e) { document.getElementById('user-pontos').innerHTML = `-- <span>pts</span>`; }
+    }
+
+    async function carregarPremios() {
+      const box = document.getElementById('lista-premios');
+      try {
+        const premios = await Api.listarPremios(COMERCIO_SLUG);
+        if (!premios.length) {
+          box.innerHTML = `<div class="showcase-card" style="padding:28px; text-align:center; font-size:13px; color:var(--cor-subtexto);">Nenhum prêmio cadastrado.</div>`;
+          return;
+        }
+
+        box.innerHTML = premios.map(p => `
+          <div class="showcase-card">
+            <img class="showcase-media" src="${p.imagem_url || FOTO_PADRAO}">
+            <div class="showcase-info">
+              <h4 class="showcase-title">${p.titulo}</h4>
+              <div class="showcase-footer">
+                <span class="cost-badge">${p.pontos} pts</span>
+                <button class="btn-claim" onclick="resgatarItem(${p.id}, '${p.titulo}')">Resgatar</button>
+              </div>
+            </div>
+          </div>
+        `).join('');
+      } catch (e) { box.innerHTML = `<p style="color:#ef4444; font-size:12px;">${e.message}</p>`; }
+    }
+
+    async function resgatarItem(id, titulo) {
+      if (!confirm(`Resgatar "${titulo}"?`)) return;
+      try {
+        const data = await Api.resgatarPremio(COMERCIO_SLUG, MEU_DEVICE_ID, id);
+        alert(`Resgate confirmado!\nSaldo: ${data.saldoFinal} pts.`);
+        document.getElementById('user-pontos').innerHTML = `${data.saldoFinal} <span>pts</span>`;
+      } catch (err) { alert("Erro: " + err.message); }
+    }
+
+    async function vincularCpfModal() {
+      const cpf = prompt("Digite seu CPF (11 números):");
+      if (!cpf) return;
+      const limpo = cpf.replace(/\D/g, '');
+      if (limpo.length !== 11) return alert("CPF inválido.");
+      try {
+        const data = await Api.vincularCpf(COMERCIO_SLUG, MEU_DEVICE_ID, limpo);
+        usuarioTemCpfVinculado = true;
+        document.getElementById('alerta-vincular').style.display = 'none';
+        atualizarCamadaInterface();
+        document.getElementById('user-pontos').innerHTML = `${data.pontos} <span>pts</span>`;
+        alert("CPF vinculado com sucesso!");
+      } catch (e) { alert("Erro: " + e.message); }
+    }
+
+    function iniciarScanner() {
+      document.getElementById('btn-scan').style.display = 'none';
+      document.getElementById('reader-container').style.display = 'block';
+
+      if (html5QrcodeScanner) { try { html5QrcodeScanner.clear(); } catch(e) {} }
+
+      html5QrcodeScanner = new Html5Qrcode("reader");
+      html5QrcodeScanner.start(
+        { facingMode: "user" },
+        { fps: 15, qrbox: { width: 220, height: 220 } },
+        (decodedText) => { pararScanner(); processarNota(decodedText); },
+        () => {}
+      ).catch(err => { alert("Erro na câmera: " + (err.message || err)); pararScanner(); });
+    }
+
+    function pararScanner() {
+      if (html5QrcodeScanner) {
+        html5QrcodeScanner.stop().then(() => {
+          document.getElementById('btn-scan').style.display = 'block';
+          document.getElementById('reader-container').style.display = 'none';
+        });
+      }
+    }
+
+    async function processarNota(urlNota) {
+      const btn = document.getElementById('btn-scan');
+      btn.innerText = "Validando cupom...";
+      btn.disabled = true;
+      try {
+        const data = await Api.processarNotaFiscal(COMERCIO_SLUG, MEU_DEVICE_ID, urlNota);
+        document.getElementById('user-pontos').innerHTML = `${data.novosPontos} <span>pts</span>`;
+        alert(`Cupom validado! +${data.pontosGanhos} pontos.`);
+      } catch (err) { alert("Erro: " + err.message); }
+      finally {
+        btn.innerText = "Escanear QR Code da Nota Fiscal";
+        btn.disabled = false;
+      }
+    }
+
+    (async () => {
+      const dados = await inicializarTema();
+      if (dados?.logo_url) {
+        const img = document.getElementById('logo-img-header');
+        img.src = dados.logo_url;
+        img.style.display = 'block';
+      }
+      await carregarOfertas();
+      await carregarPontos();
+      await carregarPremios();
+      atualizarCamadaInterface();
+    })();
+  </script>
+</body>
+</html>
