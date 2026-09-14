@@ -60,6 +60,7 @@
     .input-control { width: 100%; padding: 12px 14px; background: #fafaf9; border: 1.5px solid var(--border); border-radius: 10px; font-size: 13px; color: var(--text); outline: none; transition: all 0.15s; }
     .input-control:focus { background: #ffffff; border-color: #1c1917; }
     .input-control:disabled { background: #f5f5f4; color: #78716c; cursor: not-allowed; }
+    .form-help-text { font-size: 11px; color: var(--muted); word-break: break-word; line-height: 1.4; margin-top: 2px; }
 
     .color-picker-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 4px; width: 100%; }
     .color-item { border: 1px solid var(--border); background: #fafaf9; border-radius: 12px; padding: 10px 4px; display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; }
@@ -155,15 +156,16 @@
           <div class="card-subtitle">Altere o nome fantasia, CNPJ, paleta de cores e o logotipo.</div>
           <form onsubmit="salvarIdentidade(event)">
             <div class="form-group">
-              <label class="form-label">Nome de usuário do comércio</label>
+              <label class="form-label">Nome de usuário do comércio (endereço fixo)</label>
               <input type="text" id="loja-username-fixo" class="input-control" disabled>
+              <span class="form-help-text">Este identificador define a URL exclusiva do seu PWA.</span>
             </div>
             <div class="form-group">
-              <label class="form-label">Nome Fantasia *</label>
+              <label class="form-label">Nome Fantasia do Estabelecimento *</label>
               <input type="text" id="loja-nome" class="input-control" placeholder="Ex: Singello Brigadeiro" required oninput="atualizarMockupNome(this.value)">
             </div>
             <div class="form-group">
-              <label class="form-label">CNPJ (14 números) *</label>
+              <label class="form-label">CNPJ da Nota Fiscal (14 números) *</label>
               <input type="text" id="loja-cnpj" class="input-control" placeholder="00000000000000" maxlength="14" required oninput="this.value=this.value.replace(/\D/g,'').slice(0,14)">
             </div>
             <div class="form-group">
@@ -187,13 +189,13 @@
               </div>
             </div>
             <div class="form-group">
-              <label class="form-label">Logotipo</label>
+              <label class="form-label">Logotipo da Marca (PNG transparente recomendado)</label>
               <div class="custom-upload-card">
                 <div class="custom-upload-thumb" id="thumb-logo-box"><span style="font-size:24px;">🏪</span></div>
                 <div class="custom-upload-details">
                   <input type="file" id="loja-logo" accept="image/png, image/webp, image/jpeg" style="display: none;" onchange="processarLogo(event)">
                   <button type="button" class="btn-choose-file" onclick="document.getElementById('loja-logo').click()">Escolher imagem</button>
-                  <span class="custom-upload-status" id="logo-status-label">Fundo transparente recomendado.</span>
+                  <span class="custom-upload-status" id="logo-status-label">Logo cadastrado com fundo transparente.</span>
                 </div>
               </div>
             </div>
@@ -202,7 +204,7 @@
         </div>
 
         <div class="mockup-sticky">
-          <div style="font-size:12px; font-weight:700; color:var(--muted); text-align:center; margin-bottom:8px;">Prévia em Tempo Real</div>
+          <div style="font-size:12px; font-weight:700; color:var(--muted); text-align:center; margin-bottom:8px;">Prévia em Tempo Real do PWA</div>
           <div class="phone-frame">
             <div class="mockup-header" id="mock-header">
               <div class="mockup-logo-free" id="mock-logo-wrap"></div>
@@ -215,7 +217,11 @@
               <div class="mockup-card-balance">
                 <div class="mockup-balance-number">100 <span style="font-size:14px; color:#b91c1c;" id="mock-pts-label">pts</span></div>
                 <div style="font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase;">Saldo Disponível</div>
-                <button type="button" class="btn-submit" id="mock-btn-action" style="width:100%; background:#b91c1c; font-size:12px; padding:10px; margin-top:10px;">Escanear Nota</button>
+                <button type="button" class="btn-submit" id="mock-btn-action" style="width:100%; background:#b91c1c; font-size:12px; padding:10px; margin-top:10px;">Escanear QR Code da Nota</button>
+              </div>
+              <div style="background:#fff; border:1px solid var(--border); border-radius:12px; padding:12px; font-size:12px;">
+                <span id="mock-tag" style="background:#ffffff; color:#b91c1c; padding:3px 6px; border-radius:4px; font-weight:800; font-size:10px; border:1px solid rgba(0,0,0,0.06);">OFERTA DA LOJA</span>
+                <div style="font-weight:700; margin-top:6px;">Combo Especial da Semana</div>
               </div>
             </div>
           </div>
@@ -258,6 +264,7 @@
         <div>
           <div class="card" style="margin-bottom: 12px; padding: 18px 24px;">
             <div class="card-title">Promoções Publicadas</div>
+            <div class="card-subtitle" style="margin-bottom: 0;">Como os clientes visualizam no aplicativo.</div>
           </div>
           <div id="lista-promocoes-box">Carregando promoções...</div>
         </div>
@@ -268,7 +275,7 @@
       <div class="editor-grid">
         <div class="card">
           <div class="card-title">Novo Item de Recompensa</div>
-          <div class="card-subtitle">Cadastre os prêmios para troca de pontos.</div>
+          <div class="card-subtitle">Cadastre os prêmios para troca de pontos acumulados.</div>
           <form onsubmit="criarPremio(event)">
             <div class="form-group">
               <label class="form-label">Título da Recompensa *</label>
@@ -285,7 +292,7 @@
                 <div class="custom-upload-details">
                   <input type="file" id="premio-foto" accept="image/*" style="display: none;" onchange="processarFotoPremio(event)">
                   <button type="button" class="btn-choose-file" onclick="document.getElementById('premio-foto').click()">Escolher imagem</button>
-                  <span class="custom-upload-status" id="premio-status-label">Foto para catálogo.</span>
+                  <span class="custom-upload-status" id="premio-status-label">Foto para o catálogo.</span>
                 </div>
               </div>
             </div>
@@ -295,6 +302,7 @@
         <div>
           <div class="card" style="margin-bottom: 12px; padding: 18px 24px;">
             <div class="card-title">Catálogo Ativo</div>
+            <div class="card-subtitle" style="margin-bottom: 0;">Itens disponíveis para resgate no balcão.</div>
           </div>
           <div id="lista-premios-box">Carregando catálogo...</div>
         </div>
@@ -306,6 +314,11 @@
     let lojaAtual = null;
     let userIdAtual = null;
     let pwaClienteUrl = "";
+
+    let corHeader = '#ffffff';
+    let corSec = '#ffffff';
+    let corDest = '#b91c1c';
+
     let logoB64 = null, promoB64 = null, premioB64 = null;
     const FOTO_FALLBACK = "https://images.unsplash.com/photo-1517256064527-09c73fc73e38?w=500&q=80";
 
@@ -353,17 +366,27 @@
       const preSlug = sessionStorage.getItem('saas_pre_slug') || '';
       document.getElementById('top-slug-badge').innerText = preSlug ? `@${preSlug}` : "Novo";
       document.getElementById('loja-username-fixo').value = preSlug ? `@${preSlug}` : "@seunegocio";
+      document.getElementById('btn-save-loja').innerText = "Criar e Publicar App";
+      document.getElementById('card-qrcode-divulgacao').style.display = 'none';
+      document.getElementById('link-abrir-pwa').style.display = 'none';
     }
 
     function atualizarMockupNome(val) { document.getElementById('mock-store-name').innerText = val.trim() || 'Seu Estabelecimento'; }
 
     function sincronizarCor(tipo, val) {
       if (tipo === 'header') {
+        corHeader = val;
         document.getElementById('mock-header').style.backgroundColor = val;
       }
+      if (tipo === 'sec') {
+        corSec = val;
+        document.getElementById('mock-tag').style.background = val;
+      }
       if (tipo === 'dest') {
+        corDest = val;
         document.getElementById('mock-btn-action').style.background = val;
         document.getElementById('mock-pts-label').style.color = val;
+        document.getElementById('mock-tag').style.color = val;
       }
       document.getElementById(`circ-${tipo}`).style.backgroundColor = val;
       document.getElementById(`hex-${tipo}`).value = val.toUpperCase();
@@ -381,17 +404,94 @@
         logoB64 = await comprimirImagemParaBase64(file, 600);
         document.getElementById('mock-logo-wrap').innerHTML = `<img src="${logoB64}">`;
         document.getElementById('thumb-logo-box').innerHTML = `<img src="${logoB64}">`;
+        document.getElementById('logo-status-label').innerText = `${file.name} pronto para salvar.`;
       }
     }
 
-    function copiarLinkPwa() { navigator.clipboard.writeText(pwaClienteUrl).then(() => alert("Link copiado!")); }
+    function copiarLinkPwa() { navigator.clipboard.writeText(pwaClienteUrl).then(() => alert("Link copiado com sucesso!")); }
 
+    // FUNÇÃO COMPLETA DE CRIAÇÃO E ATUALIZAÇÃO RESTAURADA
     async function salvarIdentidade(e) {
       e.preventDefault();
-      alert("Configurações salvas com sucesso!");
+      const btn = document.getElementById('btn-save-loja');
+      const nome = document.getElementById('loja-nome').value.trim();
+      const cnpj = document.getElementById('loja-cnpj').value.replace(/\D/g, '');
+
+      if (!nome) return alert("Digite o nome da loja.");
+      if (cnpj.length !== 14) return alert("O CNPJ deve conter exatamente 14 dígitos.");
+
+      btn.disabled = true;
+      btn.innerText = "Salvando alterações...";
+
+      try {
+        let logoFinalUrl = lojaAtual?.logo_url || '';
+
+        if (logoB64 && logoB64.startsWith('data:image')) {
+          const base64Data = logoB64.replace(/^data:image\/\w+;base64,/, '');
+          const bytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+          const fileName = `logos/${lojaAtual?.slug || 'loja'}_${Date.now()}.png`;
+
+          const { error: upErr } = await supabaseClient.storage
+            .from('public-uploads')
+            .upload(fileName, bytes, { contentType: 'image/png', upsert: true });
+
+          if (!upErr) {
+            const { data: pubData } = supabaseClient.storage.from('public-uploads').getPublicUrl(fileName);
+            logoFinalUrl = pubData.publicUrl;
+          }
+        }
+
+        if (!lojaAtual || !lojaAtual.id) {
+          // Modo Criação: Cadastra nova loja vinculada ao usuário
+          const slugReservado = sessionStorage.getItem('saas_pre_slug') || nome.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "-").replace(/-+/g, "-");
+
+          const { data: novo, error: insErr } = await supabaseClient.from('comercios').insert([{
+            nome_fantasia: nome,
+            slug: slugReservado,
+            cnpj,
+            cor_primaria: corHeader,
+            cor_secundaria: corSec,
+            cor_destaque: corDest,
+            logo_url: logoFinalUrl,
+            icone_pwa_url: logoFinalUrl,
+            user_id: userIdAtual
+          }]).select().single();
+
+          if (insErr) throw insErr;
+          lojaAtual = novo;
+          sessionStorage.removeItem('saas_pre_slug');
+          alert("✅ Aplicativo criado e publicado com sucesso!");
+          window.location.reload();
+        } else {
+          // Modo Atualização: Salva dados da loja existente
+          const { data: atualizado, error: updErr } = await supabaseClient
+            .from('comercios')
+            .update({
+              nome_fantasia: nome,
+              cnpj,
+              cor_primaria: corHeader,
+              cor_secundaria: corSec,
+              cor_destaque: corDest,
+              logo_url: logoFinalUrl,
+              icone_pwa_url: logoFinalUrl
+            })
+            .eq('id', lojaAtual.id)
+            .select()
+            .single();
+
+          if (updErr) throw updErr;
+          lojaAtual = atualizado;
+          alert("✅ Alterações salvas com sucesso!");
+          window.location.reload();
+        }
+      } catch (err) {
+        alert("Erro ao salvar: " + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerText = "Salvar Alterações";
+      }
     }
 
-    // CORREÇÃO DOS HANDLERS DE UPLOAD DE FOTO
     async function processarFotoPromo(e) {
       const f = e.target.files[0];
       if (f) {
@@ -419,7 +519,7 @@
           app_url: pwaClienteUrl
         });
 
-        alert("✅ Promoção publicada e notificação push disparada para os clientes!");
+        alert("✅ Promoção publicada e notificação push disparada!");
         document.getElementById('promo-titulo').value = '';
         document.getElementById('promo-desc').value = '';
         document.getElementById('promo-validade').value = '';
@@ -463,7 +563,6 @@
       document.getElementById(`promo-${id}`)?.remove();
     }
 
-    // CORREÇÃO DOS HANDLERS DE UPLOAD DE PRÊMIO
     async function processarFotoPremio(e) {
       const f = e.target.files[0];
       if (f) {
