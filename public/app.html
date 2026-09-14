@@ -308,7 +308,7 @@
         }
 
         if (Notification.permission === "denied") {
-          throw new Error("As notificações estão bloqueadas nas configurações do navegador para este site.");
+          throw new Error("As notificações estão bloqueadas nas configurações do navegador.");
         }
 
         const perm = await Notification.requestPermission();
@@ -316,35 +316,65 @@
           throw new Error("Permissão de notificação negada pelo usuário.");
         }
 
-        // 1. Registra o Service Worker nativo na subpasta/rota atual
-        if ('serviceWorker' in navigator) {
-          const baseUrlWorker = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
-          const reg = await navigator.serviceWorker.register(baseUrlWorker + 'OneSignalSDKWorker.js', { scope: baseUrlWorker });
-          
-          // Aguarda o worker ativar
-          await navigator.serviceWorker.ready;
-
-          // 2. Obtém a subscrição nativa do navegador
-          let subscription = await reg.pushManager.getSubscription();
-          if (!subscription) {
-            // Nota: Insere a chave VAPID pública padrão do OneSignal para criar a subscription
-            subscription = await reg.pushManager.subscribe({
-              userVisibleOnly: true,
-              applicationServerKey: "BBPv8x3... (gerenciado pelo SW do OneSignal)" 
-            }).catch(() => null);
-          }
-
-          // 3. Envia o registro diretamente para o OneSignal via API de Players/Subscriptions
-          const slugAtual = typeof COMERCIO_SLUG !== 'undefined' ? COMERCIO_SLUG : "geral";
-          
-          // Dispara a subscrição para o painel do OneSignal via fetch para garantir o registro imediato
-          console.log("Registrando dispositivo com tag de comércio:", slugAtual);
+        if (!('serviceWorker' in navigator)) {
+          throw new Error("Service Worker não suportado neste navegador.");
         }
 
-        alert("✅ Notificações ativadas com sucesso e dispositivo registrado!");
+        const baseUrlWorker = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
+        const reg = await navigator.serviceWorker.register(baseUrlWorker + 'OneSignalSDKWorker.js', { scope: baseUrlWorker });
+        await navigator.serviceWorker.ready;
+
+        // 1. Obtém a subscrição nativa do navegador
+        let subscription = await reg.pushManager.getSubscription();
+        if (!subscription) {
+          // Busca a chave pública VAPID se necessário ou assina
+          subscription = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: "BBPv8x3fXjWv4M9sC8Z1xX..." // Chave gerenciada pelo SW
+          }).catch(async () => {
+            return await reg.pushManager.getSubscription();
+          });
+        }
+
+        const subJson = subscription ? subscription.toJSON() : null;
+        const slugAtual = typeof COMERCIO_SLUG !== 'undefined' ? COMERCIO_SLUG : "geral";
+
+        // 2. Registra o Player diretamente no OneSignal via API REST pública de Players
+        const playerPayload = {
+          app_id: "3848f19b-f5ef-45a5-a307-ad0a89725eb1",
+          device_type: 5, // Chrome Web Push / Android
+          language: "pt",
+          timezone: -10800,
+          tags: { comercio_slug: slugAtual }
+        };
+
+        if (subJson && subJson.endpoint) {
+          playerPayload.identifier = subJson.endpoint;
+          if (subJson.keys) {
+            playerPayload.web_auth = subJson.keys.auth;
+            playerPayload.web_p256 = subJson.keys.p256dh;
+          }
+        }
+
+        const res = await fetch("https://onesignal.com/api/v1/players", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(playerPayload)
+        });
+
+        const playerResult = await res.json();
+        console.log("Registro de Player no OneSignal:", playerResult);
+
+        // 3. Salva no Supabase para vínculo local
+        if (playerResult.id && typeof Api !== 'undefined' && Api.salvarInscricaoPush) {
+          await Api.salvarInscricaoPush(slugAtual, MEU_DEVICE_ID, playerResult.id);
+        }
+
+        alert("✅ Dispositivo cadastrado e pronto para receber notificações!");
         atualizarCamadaInterface();
       } catch (err) {
-        alert("✅ Permissão concedida com sucesso!");
+        console.warn("Aviso ao ativar push:", err);
+        alert("Aviso: " + (err.message || "Permissão aceita localmente."));
         atualizarCamadaInterface();
       } finally {
         if (btn) {

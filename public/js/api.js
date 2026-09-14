@@ -269,24 +269,20 @@ const Api = {
   // Função de disparo automático de push ao criar promoção
   async dispararPushParaLoja(slugLoja, tituloPromo, descricaoPromo, appUrl) {
     try {
-      // 1. Busca todos os aparelhos inscritos nesta loja específica no Supabase
-      const { data: inscricoes, error } = await supabaseClient
-        .from('push_subscriptions')
-        .select('subscription')
-        .eq('comercio_slug', slugLoja);
-
-      if (error || !inscricoes || inscricoes.length === 0) {
-        console.log("Nenhum aparelho inscrito para receber push nesta loja.");
-        return;
-      }
-
-      // Extrai apenas os endpoints/tokens salvos
-      const endpoints = inscricoes.map(i => i.subscription);
-
-      // 2. Dispara a requisição oficial para a API REST do OneSignal
-      // Substitua SEU_ONESIGNAL_APP_ID e SUA_REST_API_KEY pelas chaves reais do seu painel OneSignal
       const ONESIGNAL_APP_ID = "3848f19b-f5ef-45a5-a307-ad0a89725eb1";
-      const ONESIGNAL_REST_API_KEY = "SUA_REST_API_KEY_AQUI"; // Pegue em OneSignal > Settings > Keys & IDs
+      // IMPORTANTE: Insira sua chave REST do OneSignal (Settings > Keys & IDs > REST API Key)
+      const ONESIGNAL_REST_API_KEY = "os_v2_app_xxxxxxxxxxxxxxxxxxxxxxxx"; 
+
+      const payload = {
+        app_id: ONESIGNAL_APP_ID,
+        // Filtra os celulares que possuem a tag daquela loja
+        filters: [
+          { field: "tag", key: "comercio_slug", relation: "=", value: slugLoja }
+        ],
+        headings: { "pt": tituloPromo, "en": tituloPromo },
+        contents: { "pt": descricaoPromo, "en": descricaoPromo },
+        url: appUrl || `https://bomfregues.github.io/public/app.html?loja=${slugLoja}`
+      };
 
       const resposta = await fetch("https://onesignal.com/api/v1/notifications", {
         method: "POST",
@@ -294,22 +290,14 @@ const Api = {
           "Content-Type": "application/json; charset=utf-8",
           "Authorization": `Basic ${ONESIGNAL_REST_API_KEY}`
         },
-        body: JSON.stringify({
-          app_id: ONESIGNAL_APP_ID,
-          included_segments: ["All"], // Ou direcionado via tags/subscriptions
-          filters: [
-            { field: "tag", key: "comercio_slug", relation: "=", value: slugLoja }
-          ],
-          headings: { "en": tituloPromo, "pt": tituloPromo },
-          contents: { "en": descricaoPromo, "pt": descricaoPromo },
-          url: appUrl
-        })
+        body: JSON.stringify(payload)
       });
 
       const resultado = await resposta.json();
-      console.log("Disparo de Push OneSignal realizado:", resultado);
+      console.log("Resultado do envio OneSignal:", resultado);
+      return resultado;
     } catch (e) {
       console.warn("Falha ao disparar push no OneSignal:", e);
     }
-  }
+  },
 };
