@@ -10,8 +10,22 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="theme-color" content="#ffffff">
 
-  <!-- Tag de manifesto que receberá a URL da Edge Function -->
-  <link id="manifest-link" rel="manifest">
+  <!-- Injeção Imediata da Edge Function de Manifesto no Projeto Real -->
+  <script>
+    (function() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const slugLoja = urlParams.get('loja') || "singello";
+      const PROJECT_ID = "uskfiencjaqqlhglpuqt";
+      const manifestUrl = `https://${PROJECT_ID}.supabase.co/functions/v1/manifest?loja=${slugLoja}`;
+      
+      const link = document.createElement('link');
+      link.id = 'manifest-link';
+      link.rel = 'manifest';
+      link.href = manifestUrl;
+      document.head.appendChild(link);
+    })();
+  </script>
+
   <link id="apple-touch-icon-tag" rel="apple-touch-icon">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -274,19 +288,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/api.js"></script>
-
-  <script>
-    // Configura o link de manifesto HTTPS para a Edge Function imediatamente
-    const urlParamsInit = new URLSearchParams(window.location.search);
-    const slugInit = urlParamsInit.get('loja') || "singello";
-    const SUPABASE_PROJECT_URL = "https://oxeqhhljrcffmsmqnrcg.supabase.co"; // URL base do seu Supabase
-    const manifestUrl = `${SUPABASE_PROJECT_URL}/functions/v1/manifest?loja=${slugInit}`;
-
-    document.addEventListener("DOMContentLoaded", () => {
-      const linkTag = document.getElementById('manifest-link');
-      if (linkTag) linkTag.href = manifestUrl;
-    });
-  </script>
 </head>
 <body>
 
@@ -398,14 +399,21 @@
     const isIos = () => /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
     const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 
+    // Registra Service Worker no ciclo inicial
     if ('serviceWorker' in navigator) {
       const baseUrlWorker = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
       navigator.serviceWorker.register(baseUrlWorker + 'sw.js', { scope: baseUrlWorker }).catch(() => {});
     }
 
+    // Captura o prompt do Android
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
       deferredPrompt = e;
+      const btnInstall = document.getElementById('btn-install-action');
+      if (btnInstall) {
+        btnInstall.innerText = "Instalar aplicativo no celular";
+        btnInstall.disabled = false;
+      }
       atualizarCamadaInterface();
     });
 
@@ -443,6 +451,7 @@
       }
     }
 
+    // Disparo imediato da instalação
     async function acionarInstalacao() {
       if (isIos()) {
         document.getElementById('iosOverlay').style.display = 'block';
@@ -458,6 +467,21 @@
           document.getElementById('btn-install-action').style.display = 'none';
           atualizarCamadaInterface();
         }
+      } else {
+        // Se o evento nativo do Chrome estiver sendo avaliado, instrui sutilmente
+        const btn = document.getElementById('btn-install-action');
+        btn.innerText = "Carregando instalador...";
+        btn.disabled = true;
+
+        setTimeout(() => {
+          btn.innerText = "Instalar aplicativo no celular";
+          btn.disabled = false;
+          if (deferredPrompt) {
+            deferredPrompt.prompt();
+          } else {
+            alert("Para instalar agora:\nToque no menu (3 pontinhos) do Chrome e selecione 'Instalar aplicativo'.");
+          }
+        }, 1200);
       }
     }
 
@@ -466,7 +490,7 @@
       setTimeout(() => document.getElementById('iosOverlay').style.display = 'none', 300);
     }
 
-    // Canvas para ícone do iOS
+    // Canvas dinâmico para Apple Touch Icon do iOS
     function gerarIconeCustomizado(logoUrl, corFundo) {
       return new Promise((resolve) => {
         const canvas = document.createElement('canvas');
