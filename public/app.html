@@ -10,22 +10,8 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="theme-color" content="#ffffff">
 
-  <!-- Injeção Imediata da Edge Function de Manifesto no Projeto Real -->
-  <script>
-    (function() {
-      const urlParams = new URLSearchParams(window.location.search);
-      const slugLoja = urlParams.get('loja') || "singello";
-      const PROJECT_ID = "uskfiencjaqqlhglpuqt";
-      const manifestUrl = `https://${PROJECT_ID}.supabase.co/functions/v1/manifest?loja=${slugLoja}`;
-      
-      const link = document.createElement('link');
-      link.id = 'manifest-link';
-      link.rel = 'manifest';
-      link.href = manifestUrl;
-      document.head.appendChild(link);
-    })();
-  </script>
-
+  <!-- Link de Manifesto dinâmico apontando para a pasta física da loja -->
+  <link id="manifest-link" rel="manifest">
   <link id="apple-touch-icon-tag" rel="apple-touch-icon">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -288,6 +274,28 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/api.js"></script>
+
+  <script>
+    // Configura o link de manifesto apontando para o escopo isolado da pasta da loja
+    (function() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const slugLoja = urlParams.get('loja') || window.STORE_SLUG || "singello";
+      const pwaDir = urlParams.get('pwa_dir');
+
+      // Se foi aberto pela pasta da loja, usa o manifest local daquela pasta
+      let manifestHref = "";
+      if (pwaDir) {
+        manifestHref = `${pwaDir}manifest.json`;
+      } else {
+        manifestHref = `lojas/${slugLoja}/manifest.json`;
+      }
+
+      const link = document.getElementById('manifest-link');
+      if (link) {
+        link.href = manifestHref;
+      }
+    })();
+  </script>
 </head>
 <body>
 
@@ -383,7 +391,7 @@
 
   <script>
     const urlParams = new URLSearchParams(window.location.search);
-    const COMERCIO_SLUG = urlParams.get('loja') || "singello";
+    const COMERCIO_SLUG = urlParams.get('loja') || window.STORE_SLUG || "singello";
 
     let MEU_DEVICE_ID = localStorage.getItem('bomfregues_device_id');
     if (!MEU_DEVICE_ID) {
@@ -399,6 +407,7 @@
     const isIos = () => /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
     const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 
+    // Registra o Service Worker
     if ('serviceWorker' in navigator) {
       const baseUrlWorker = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
       navigator.serviceWorker.register(baseUrlWorker + 'sw.js', { scope: baseUrlWorker }).catch(() => {});

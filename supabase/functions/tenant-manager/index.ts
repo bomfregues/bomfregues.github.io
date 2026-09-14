@@ -1,136 +1,198 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { corsHeaders } from "../_shared/cors.ts";
 
-Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+};
+
+// Configurações do Repositório GitHub
+// Configure estes secrets no Supabase: GITHUB_TOKEN, GITHUB_OWNER (seu user), GITHUB_REPO
+const GITHUB_TOKEN = Deno.env.get("GITHUB_TOKEN") ?? "";
+const GITHUB_OWNER = Deno.env.get("GITHUB_OWNER") ?? "bomfregues";
+const GITHUB_REPO = Deno.env.get("GITHUB_REPO") ?? "bomfregues";
+const GITHUB_BRANCH = "main";
+
+async function salvarArquivoNoGitHub(caminho: string, conteudoTexto: string, commitMsg: string) {
+  if (!GITHUB_TOKEN) {
+    console.warn("GITHUB_TOKEN não configurado. Pulando commit automático no GitHub Pages.");
+    return false;
+  }
+
+  const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${caminho}`;
+  
+  // Verifica se o arquivo já existe para obter o SHA (necessário para update)
+  let sha: string | undefined = undefined;
+  const getRes = await fetch(url, {
+    headers: {
+      "Authorization": `token ${GITHUB_TOKEN}`,
+      "User-Agent": "Supabase-Edge-Function",
+      "Accept": "application/vnd.github.v3+json"
+    }
+  });
+
+  if (getRes.ok) {
+    const data = await getRes.json();
+    sha = data.sha;
+  }
+
+  // Codifica o conteúdo em Base64
+  const bytes = new TextEncoder().encode(conteudoTexto);
+  const binString = Array.from(bytes, (byte) => String.fromCharCode(byte)).join("");
+  const contentBase64 = btoa(binString);
+
+  const putRes = await fetch(url, {
+    method: "PUT",
+    headers: {
+      "Authorization": `token ${GITHUB_TOKEN}`,
+      "User-Agent": "Supabase-Edge-Function",
+      "Content-Type": "application/json",
+      "Accept": "application/vnd.github.v3+json"
+    },
+    body: JSON.stringify({
+      message: commitMsg,
+      content: contentBase64,
+      branch: GITHUB_BRANCH,
+      ...(sha ? { sha } : {})
+    })
+  });
+
+  return putRes.ok;
+}
+
+function gerarManifestoLoja(slug: string, nome: string, cor: string, logoUrl: string) {
+  const iconFinal = logoUrl || "https://bomfregues.github.io/public/img/icon-192.png";
+  const manifest = {
+    name: nome,
+    short_name: nome.length > 12 ? nome.slice(0, 12) : nome,
+    id: `/public/lojas/${slug}/`,
+    start_url: `./index.html?loja=${slug}`,
+    scope: `./`,
+    display: "standalone",
+    orientation: "portrait",
+    background_color: cor || "#ffffff",
+    theme_color: cor || "#1c1917",
+    icons: [
+      {
+        src: iconFinal,
+        sizes: "192x192",
+        type: "image/png",
+        purpose: "any"
+      },
+      {
+        src: iconFinal,
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "any"
+      },
+      {
+        src: iconFinal,
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "maskable"
+      }
+    ]
+  };
+  return JSON.stringify(manifest, null, 2);
+}
+
+function gerarHtmlLoja(slug: string) {
+  // Redireciona e isola a execução dentro do diretório exclusivo da loja
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Bom Freguês</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="../../img/icon-192.png">
+  <script>
+    // Carrega a engine completa passando o slug fixo desta pasta
+    window.STORE_SLUG = "${slug}";
+    window.location.replace("../../app.html?loja=${slug}&pwa_dir=lojas/${slug}/");
+  </script>
+</head>
+<body>
+</body>
+</html>`;
+}
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
-
     const url = new URL(req.url);
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+    const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // GET: Busca loja por slug ou user_id
-    if (req.method === 'GET') {
-      const slug = url.searchParams.get('slug');
-      const userId = url.searchParams.get('user_id');
+    if (req.method === "GET") {
+      const slug = url.searchParams.get("slug") || "";
+      const { data, error } = await supabase
+        .from("comercios")
+        .select("*")
+        .eq("slug", slug)
+        .maybeSingle();
 
-      if (!slug && !userId) throw new Error("Identificador do estabelecimento ausente.");
-
-      let query = supabase.from('comercios').select('*');
-      if (slug) query = query.eq('slug', slug.toLowerCase());
-      if (userId) query = query.eq('user_id', userId);
-
-      const { data, error } = await query.maybeSingle();
       if (error) throw error;
-
-      return new Response(JSON.stringify(data || { comercio: null }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+      return new Response(JSON.stringify(data), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // POST: Cria o app único para o usuário autenticado
-    if (req.method === 'POST') {
-      const { nome_fantasia, slug, cnpj, cor_primaria, cor_secundaria, cor_destaque, logo_base64, user_id } = await req.json();
+    if (req.method === "POST" || req.method === "PUT") {
+      const payload = await req.json();
+      const slug = (payload.slug || "").toLowerCase().trim();
+      if (!slug) throw new Error("Slug obrigatório.");
 
-      if (!nome_fantasia || !slug || !cnpj) throw new Error("Preencha todos os campos obrigatorios.");
-
-      const slugNormalizado = slug.toLowerCase().trim().replace(/[^a-z0-9-]/g, '-');
-      const cnpjLimpo = cnpj.replace(/\D/g, '');
-
-      // Trava de segurança: impede que o mesmo usuário gere mais de 1 registro
-      if (user_id) {
-        const { data: existente } = await supabase.from('comercios').select('id').eq('user_id', user_id).maybeSingle();
-        if (existente) throw new Error("Este usuario ja possui um comercio cadastrado.");
-      }
-
-      let logo_url = '';
-      if (logo_base64 && logo_base64.startsWith('data:image')) {
-        const base64Data = logo_base64.replace(/^data:image\/\w+;base64,/, '');
-        const bytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
-        const fileName = `logos/${slugNormalizado}_${Date.now()}.png`;
-
-        const { error: uploadError } = await supabase.storage.from('public-uploads').upload(fileName, bytes, { contentType: 'image/png', upsert: true });
-        if (!uploadError) {
-          const { data: publicData } = supabase.storage.from('public-uploads').getPublicUrl(fileName);
-          logo_url = publicData.publicUrl;
-        }
-      }
-
-      const { data, error } = await supabase.from('comercios').insert([{
-        nome_fantasia,
-        slug: slugNormalizado,
-        cnpj: cnpjLimpo,
-        senha_admin: 'auth_managed',
-        cor_primaria: cor_primaria || '#800000',
-        cor_secundaria: cor_secundaria || '#ffffff',
-        cor_destaque: cor_destaque || '#b91c1c',
-        logo_url,
-        icone_pwa_url: logo_url,
-        user_id: user_id || null
-      }]).select().single();
-
-      if (error) throw new Error(error.message);
-
-      return new Response(JSON.stringify({ success: true, comercio: data }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
-    // PUT: Atualiza a loja existente do usuário sem duplicar e sem quebrar os clientes
-    if (req.method === 'PUT') {
-      const { id, user_id, nome_fantasia, cnpj, cor_primaria, cor_secundaria, cor_destaque, logo_base64 } = await req.json();
-
-      let query = supabase.from('comercios').select('*');
-      if (id) query = query.eq('id', id);
-      else if (user_id) query = query.eq('user_id', user_id);
-      else throw new Error("Identificacao do comercio ausente para atualizacao.");
-
-      const { data: comercio, error: errBusca } = await query.single();
-      if (errBusca || !comercio) throw new Error("Comercio nao encontrado.");
-
-      let logo_url = comercio.logo_url;
-      if (logo_base64 && logo_base64.startsWith('data:image')) {
-        const base64Data = logo_base64.replace(/^data:image\/\w+;base64,/, '');
-        const bytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
-        const fileName = `logos/${comercio.slug}_${Date.now()}.png`;
-
-        const { error: uploadError } = await supabase.storage.from('public-uploads').upload(fileName, bytes, { contentType: 'image/png', upsert: true });
-        if (!uploadError) {
-          const { data: publicData } = supabase.storage.from('public-uploads').getPublicUrl(fileName);
-          logo_url = publicData.publicUrl;
-        }
-      }
-
-      const { data: atualizado, error: errUpdate } = await supabase
-        .from('comercios')
-        .update({
-          nome_fantasia: nome_fantasia || comercio.nome_fantasia,
-          cnpj: cnpj ? cnpj.replace(/\D/g, '') : comercio.cnpj,
-          cor_primaria: cor_primaria || comercio.cor_primaria,
-          cor_secundaria: cor_secundaria || comercio.cor_secundaria,
-          cor_destaque: cor_destaque || comercio.cor_destaque,
-          logo_url,
-          icone_pwa_url: logo_url
-        })
-        .eq('id', comercio.id)
+      // 1. Salva/Atualiza no banco de dados
+      const { data: loja, error } = await supabase
+        .from("comercios")
+        .upsert({
+          slug,
+          nome_fantasia: payload.nome_fantasia,
+          cor_primaria: payload.cor_primaria,
+          cor_secundaria: payload.cor_secundaria,
+          cor_destaque: payload.cor_destaque,
+          logo_url: payload.logo_url,
+          user_id: payload.user_id,
+          senha_resgate: payload.senha_resgate
+        }, { onConflict: "slug" })
         .select()
         .single();
 
-      if (errUpdate) throw errUpdate;
+      if (error) throw error;
 
-      return new Response(JSON.stringify({ success: true, comercio: atualizado }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      // 2. CRIAÇÃO AUTOMÁTICA DA PASTA DA LOJA NO GITHUB
+      // Gera public/lojas/<slug>/manifest.json
+      const manifestContent = gerarManifestoLoja(slug, loja.nome_fantasia, loja.cor_primaria, loja.logo_url);
+      await salvarArquivoNoGitHub(
+        `public/lojas/${slug}/manifest.json`,
+        manifestContent,
+        `chore: auto-provision pwa manifest for ${slug}`
+      );
+
+      // Gera public/lojas/<slug>/index.html
+      const htmlContent = gerarHtmlLoja(slug);
+      await salvarArquivoNoGitHub(
+        `public/lojas/${slug}/index.html`,
+        htmlContent,
+        `chore: auto-provision pwa entrypoint for ${slug}`
+      );
+
+      return new Response(JSON.stringify({ 
+        sucesso: true, 
+        loja,
+        pwa_url: `https://${GITHUB_OWNER}.github.io/${GITHUB_REPO}/public/lojas/${slug}/`
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
     }
 
-    return new Response('Metodo nao permitido', { status: 405, headers: corsHeaders });
-  } catch (err: any) {
+    return new Response("Método não suportado", { status: 405, headers: corsHeaders });
+  } catch (err) {
     return new Response(JSON.stringify({ error: err.message }), {
       status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      headers: { ...corsHeaders, "Content-Type": "application/json" }
     });
   }
 });

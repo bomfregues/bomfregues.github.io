@@ -30,14 +30,22 @@ serve(async (req) => {
     const cor = loja?.cor_primaria || "#1c1917";
     const iconUrl = loja?.logo_url || "https://bomfregues.github.io/public/img/icon-192.png";
 
+    // URL completa e única para cada loja
+    const appUrl = `https://bomfregues.github.io/public/app.html?loja=${slug}`;
+
     const manifest = {
       name: nome,
       short_name: nome.length > 12 ? nome.slice(0, 12) : nome,
-      id: `/public/app.html?loja=${slug}`,
-      start_url: `https://bomfregues.github.io/public/app.html?loja=${slug}`,
+      // ID único impede que o WebAPK sobrescreva o outro
+      id: `https://bomfregues.github.io/public/app.html?loja=${slug}`,
+      start_url: appUrl,
       scope: `https://bomfregues.github.io/public/`,
       display: "standalone",
       orientation: "portrait",
+      // FORÇA o Android a abrir sempre uma nova janela/instância isolada
+      launch_handler: {
+        client_mode: "navigate-new"
+      },
       background_color: cor,
       theme_color: cor,
       icons: [
