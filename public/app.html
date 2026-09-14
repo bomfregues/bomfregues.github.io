@@ -58,7 +58,7 @@
       border-bottom: var(--borda-header) !important;
       box-shadow: none !important;
       position: relative;
-      z-index: 10;
+      z-index: 1;
       margin-bottom: 0 !important;
       transition: background-color 0.2s ease, border-color 0.2s ease;
     }
@@ -102,6 +102,7 @@
       margin: 0 auto !important;
       padding: 0 16px !important;
       position: relative;
+      z-index: 20;
       float: none !important;
     }
 
@@ -112,13 +113,13 @@
       flex-direction: column;
       gap: 10px;
       position: relative;
-      z-index: 30;
+      z-index: 50;
       width: 100%;
     }
 
     .btn-pill-floating {
       border-radius: 9999px;
-      padding: 13px 20px;
+      padding: 14px 20px;
       font-size: 13px;
       font-weight: 800;
       cursor: pointer;
@@ -126,10 +127,13 @@
       align-items: center;
       justify-content: center;
       gap: 8px;
-      box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+      box-shadow: 0 4px 14px rgba(0,0,0,0.08);
       width: 100%;
       transition: transform 0.15s ease, background-color 0.15s ease;
       text-decoration: none;
+      position: relative;
+      z-index: 60;
+      pointer-events: auto !important;
     }
 
     .btn-pill-floating:active { transform: scale(0.98); }
@@ -145,6 +149,8 @@
       display: none;
       flex-direction: column;
       gap: 4px;
+      position: relative;
+      z-index: 60;
     }
 
     .cpf-floating-title { font-size: 12px; color: var(--cor-subtexto); line-height: 1.4; }
@@ -240,164 +246,6 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/api.js"></script>
   <script src="js/theme.js"></script>
-
-  <script>
-    const urlParams = new URLSearchParams(window.location.search);
-    const COMERCIO_SLUG = urlParams.get('loja') || "singello";
-
-    let MEU_DEVICE_ID = localStorage.getItem('bomfregues_device_id');
-    if (!MEU_DEVICE_ID) {
-      MEU_DEVICE_ID = 'dev_' + Math.random().toString(36).substring(2, 11) + Date.now().toString(36);
-      localStorage.setItem('bomfregues_device_id', MEU_DEVICE_ID);
-    }
-
-    // Insira a chave pública VAPID gerada via terminal (ou deixe vazia para registrar sem falhas)
-    const VAPID_PUBLIC_KEY = "";
-
-    function calcularCorTextoContraste(hexColor) {
-      if (!hexColor) return '#ffffff';
-      let c = hexColor.replace('#', '');
-      if (c.length === 3) c = c.split('').map(char => char + char).join('');
-      const r = parseInt(c.substr(0, 2), 16) || 0;
-      const g = parseInt(c.substr(2, 2), 16) || 0;
-      const b = parseInt(c.substr(4, 2), 16) || 0;
-      const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
-      return (yiq >= 170) ? '#0f172a' : '#ffffff';
-    }
-
-    function urlBase64ToUint8Array(base64String) {
-      const padding = '='.repeat((4 - base64String.length % 4) % 4);
-      const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
-      const rawData = window.atob(base64);
-      const outputArray = new Uint8Array(rawData.length);
-      for (let i = 0; i < rawData.length; ++i) {
-        outputArray[i] = rawData.charCodeAt(i);
-      }
-      return outputArray;
-    }
-
-    let deferredPrompt = null;
-    const isIos = () => /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
-    const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-
-    // Escuta nativa do navegador para instalação PWA
-    window.addEventListener('beforeinstallprompt', (e) => {
-      e.preventDefault();
-      deferredPrompt = e;
-      atualizarCamadaInterface();
-    });
-
-    window.addEventListener('appinstalled', () => {
-      deferredPrompt = null;
-      atualizarCamadaInterface();
-    });
-
-    function atualizarCamadaInterface() {
-      const btnInstall = document.getElementById('btn-install-action');
-      const btnPush = document.getElementById('btn-push-action');
-      const alertaCpf = document.getElementById('alerta-vincular');
-      const spacer = document.getElementById('section-spacer');
-
-      if (!btnInstall || !btnPush) return;
-
-      if (!isStandalone()) {
-        btnInstall.style.display = 'flex';
-      } else {
-        btnInstall.style.display = 'none';
-      }
-
-      if ("Notification" in window && Notification.permission === "granted") {
-        btnPush.style.display = 'none';
-      } else {
-        btnPush.style.display = 'flex';
-      }
-
-      const algumCardFlutuante = (btnInstall.style.display === 'flex') || 
-                                 (btnPush.style.display === 'flex') || 
-                                 (alertaCpf && alertaCpf.style.display === 'flex');
-
-      if (spacer) {
-        spacer.style.height = algumCardFlutuante ? '14px' : '36px';
-      }
-    }
-
-    // Ação do Botão Instalar
-    async function acionarInstalacao() {
-      if (isIos()) {
-        document.getElementById('iosOverlay').style.display = 'block';
-        setTimeout(() => document.getElementById('iosSheet').classList.add('active'), 10);
-      } else if (deferredPrompt) {
-        deferredPrompt.prompt();
-        const { outcome } = await deferredPrompt.userChoice;
-        deferredPrompt = null;
-        if (outcome === 'accepted') {
-          document.getElementById('btn-install-action').style.display = 'none';
-          atualizarCamadaInterface();
-        }
-      } else {
-        alert("Para instalar este app:\n1. Toque nos 3 pontinhos (menu) do navegador.\n2. Selecione 'Instalar aplicativo' ou 'Adicionar à tela inicial'.");
-      }
-    }
-
-    function fecharModalIos() {
-      document.getElementById('iosSheet').classList.remove('active');
-      setTimeout(() => document.getElementById('iosOverlay').style.display = 'none', 300);
-    }
-
-    // Ação do Botão Notificação
-    async function ativarPush() {
-      const btn = document.getElementById('btn-push-action');
-      if (btn) {
-        btn.innerText = "Ativando notificações...";
-        btn.disabled = true;
-      }
-
-      try {
-        if (!("Notification" in window)) {
-          throw new Error("Seu navegador não suporta notificações web.");
-        }
-
-        if (Notification.permission === "denied") {
-          throw new Error("As notificações estão bloqueadas nas configurações do aparelho para este site. Permita o envio nas configurações do navegador.");
-        }
-
-        const perm = await Notification.requestPermission();
-        if (perm !== "granted") {
-          throw new Error("Permissão de notificação negada pelo usuário.");
-        }
-
-        if ('serviceWorker' in navigator) {
-          const baseUrlWorker = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
-          const reg = await navigator.serviceWorker.register(baseUrlWorker + 'sw.js', { scope: baseUrlWorker });
-          await navigator.serviceWorker.ready;
-
-          let sub = await reg.pushManager.getSubscription();
-
-          if (!sub && VAPID_PUBLIC_KEY && VAPID_PUBLIC_KEY.trim().length > 10) {
-            sub = await reg.pushManager.subscribe({
-              userVisibleOnly: true,
-              applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-            });
-          }
-
-          if (sub && typeof Api !== 'undefined' && Api.salvarInscricaoPush) {
-            await Api.salvarInscricaoPush(COMERCIO_SLUG, MEU_DEVICE_ID, sub.toJSON());
-          }
-        }
-
-        alert("✅ Notificações ativadas com sucesso!");
-        if (btn) btn.style.display = 'none';
-      } catch (err) {
-        alert("Aviso: " + err.message);
-      } finally {
-        if (btn) {
-          btn.innerText = "Receber avisos de promoções";
-          btn.disabled = false;
-        }
-        atualizarCamadaInterface();
-      }
-    }
-  </script>
 </head>
 <body>
 
@@ -413,11 +261,11 @@
 
   <div class="container-app-shield">
     <div class="floating-stack-area">
-      <button id="btn-install-action" class="btn-pill-floating btn-install-floating" onclick="acionarInstalacao()">
+      <button id="btn-install-action" class="btn-pill-floating btn-install-floating" type="button" onclick="acionarInstalacao()">
         Instalar aplicativo no celular
       </button>
 
-      <button id="btn-push-action" class="btn-pill-floating btn-push-floating" onclick="ativarPush()">
+      <button id="btn-push-action" class="btn-pill-floating btn-push-floating" type="button" onclick="ativarPush()">
         Receber avisos de promoções
       </button>
 
@@ -431,13 +279,11 @@
 
     <div class="section-spacer-top" id="section-spacer"></div>
 
-    <!-- ABA 1: Ofertas -->
     <div id="view-promos" class="tab-view active">
       <h2 class="headline-bar-fixed">Ofertas da Loja</h2>
       <div id="lista-promos">Carregando ofertas...</div>
     </div>
 
-    <!-- ABA 2: Fidelidade -->
     <div id="view-fidelidade" class="tab-view">
       <div class="points-hub-card">
         <div class="points-total" id="user-pontos">0 <span>pts</span></div>
@@ -494,6 +340,162 @@
   </div>
 
   <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const COMERCIO_SLUG = urlParams.get('loja') || "singello";
+
+    let MEU_DEVICE_ID = localStorage.getItem('bomfregues_device_id');
+    if (!MEU_DEVICE_ID) {
+      MEU_DEVICE_ID = 'dev_' + Math.random().toString(36).substring(2, 11) + Date.now().toString(36);
+      localStorage.setItem('bomfregues_device_id', MEU_DEVICE_ID);
+    }
+
+    const VAPID_PUBLIC_KEY = "BNxSuaChavePublicaAquiSeHouver";
+
+    function calcularCorTextoContraste(hexColor) {
+      if (!hexColor) return '#ffffff';
+      let c = hexColor.replace('#', '');
+      if (c.length === 3) c = c.split('').map(char => char + char).join('');
+      const r = parseInt(c.substr(0, 2), 16) || 0;
+      const g = parseInt(c.substr(2, 2), 16) || 0;
+      const b = parseInt(c.substr(4, 2), 16) || 0;
+      const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+      return (yiq >= 170) ? '#0f172a' : '#ffffff';
+    }
+
+    function urlBase64ToUint8Array(base64String) {
+      const padding = '='.repeat((4 - base64String.length % 4) % 4);
+      const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+      const rawData = window.atob(base64);
+      const outputArray = new Uint8Array(rawData.length);
+      for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+      }
+      return outputArray;
+    }
+
+    let deferredPrompt = null;
+    const isIos = () => /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
+    const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      atualizarCamadaInterface();
+    });
+
+    window.addEventListener('appinstalled', () => {
+      deferredPrompt = null;
+      atualizarCamadaInterface();
+    });
+
+    function atualizarCamadaInterface() {
+      const btnInstall = document.getElementById('btn-install-action');
+      const btnPush = document.getElementById('btn-push-action');
+      const alertaCpf = document.getElementById('alerta-vincular');
+      const spacer = document.getElementById('section-spacer');
+
+      if (!btnInstall || !btnPush) return;
+
+      if (!isStandalone()) {
+        btnInstall.style.display = 'flex';
+      } else {
+        btnInstall.style.display = 'none';
+      }
+
+      if ("Notification" in window && Notification.permission === "granted") {
+        btnPush.style.display = 'none';
+      } else {
+        btnPush.style.display = 'flex';
+      }
+
+      const algumCardFlutuante = (btnInstall.style.display === 'flex') || 
+                                 (btnPush.style.display === 'flex') || 
+                                 (alertaCpf && alertaCpf.style.display === 'flex');
+
+      if (spacer) {
+        spacer.style.height = algumCardFlutuante ? '14px' : '36px';
+      }
+    }
+
+    // BOTÃO 1: INSTALAR APLICATIVO
+    async function acionarInstalacao() {
+      if (isIos()) {
+        document.getElementById('iosOverlay').style.display = 'block';
+        setTimeout(() => document.getElementById('iosSheet').classList.add('active'), 10);
+      } else if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        deferredPrompt = null;
+        if (outcome === 'accepted') {
+          document.getElementById('btn-install-action').style.display = 'none';
+          atualizarCamadaInterface();
+        }
+      } else {
+        alert("Para instalar no seu celular:\n1. Toque nos 3 pontinhos do Chrome (canto superior direito).\n2. Selecione 'Instalar aplicativo' ou 'Adicionar à tela inicial'.");
+      }
+    }
+
+    function fecharModalIos() {
+      document.getElementById('iosSheet').classList.remove('active');
+      setTimeout(() => document.getElementById('iosOverlay').style.display = 'none', 300);
+    }
+
+    // BOTÃO 2: RECEBER NOTIFICAÇÕES
+    async function ativarPush() {
+      const btn = document.getElementById('btn-push-action');
+      if (btn) {
+        btn.innerText = "Solicitando permissão...";
+        btn.disabled = true;
+      }
+
+      try {
+        if (!("Notification" in window)) {
+          throw new Error("Seu navegador não suporta notificações web nativas.");
+        }
+
+        if (Notification.permission === "denied") {
+          throw new Error("As notificações estão bloqueadas no navegador. Acesse as configurações do site e mude para Permitir.");
+        }
+
+        const perm = await Notification.requestPermission();
+        if (perm !== "granted") {
+          throw new Error("Permissão de notificação não foi concedida.");
+        }
+
+        if ('serviceWorker' in navigator) {
+          const baseUrlWorker = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
+          const reg = await navigator.serviceWorker.register(baseUrlWorker + 'sw.js', { scope: baseUrlWorker });
+          await navigator.serviceWorker.ready;
+
+          let sub = await reg.pushManager.getSubscription();
+
+          if (!sub && VAPID_PUBLIC_KEY && VAPID_PUBLIC_KEY.length > 20) {
+            sub = await reg.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+            }).catch(e => {
+              console.warn("Inscrição com chave VAPID falhou, tentando registro local:", e);
+            });
+          }
+
+          if (sub && typeof Api !== 'undefined' && Api.salvarInscricaoPush) {
+            await Api.salvarInscricaoPush(COMERCIO_SLUG, MEU_DEVICE_ID, sub.toJSON());
+          }
+        }
+
+        alert("✅ Notificações ativadas com sucesso!");
+        if (btn) btn.style.display = 'none';
+      } catch (err) {
+        alert("Aviso: " + err.message);
+      } finally {
+        if (btn) {
+          btn.innerText = "Receber avisos de promoções";
+          btn.disabled = false;
+        }
+        atualizarCamadaInterface();
+      }
+    }
+
     const FOTO_PADRAO = "https://images.unsplash.com/photo-1517256064527-09c73fc73e38?w=500&q=80";
     let html5QrcodeScanner = null;
     let usuarioTemCpfVinculado = false;
