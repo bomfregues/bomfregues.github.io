@@ -102,7 +102,7 @@
       margin: 0 auto !important;
       padding: 0 16px !important;
       position: relative;
-      z-index: 20;
+      z-index: 10;
       float: none !important;
     }
 
@@ -245,7 +245,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/api.js"></script>
-  <script src="js/theme.js"></script>
 </head>
 <body>
 
@@ -279,11 +278,13 @@
 
     <div class="section-spacer-top" id="section-spacer"></div>
 
+    <!-- ABA 1: Ofertas -->
     <div id="view-promos" class="tab-view active">
       <h2 class="headline-bar-fixed">Ofertas da Loja</h2>
       <div id="lista-promos">Carregando ofertas...</div>
     </div>
 
+    <!-- ABA 2: Fidelidade -->
     <div id="view-fidelidade" class="tab-view">
       <div class="points-hub-card">
         <div class="points-total" id="user-pontos">0 <span>pts</span></div>
@@ -340,6 +341,7 @@
   </div>
 
   <script>
+    // 1. Definições Globais e Dispositivo
     const urlParams = new URLSearchParams(window.location.search);
     const COMERCIO_SLUG = urlParams.get('loja') || "singello";
 
@@ -349,34 +351,15 @@
       localStorage.setItem('bomfregues_device_id', MEU_DEVICE_ID);
     }
 
-    const VAPID_PUBLIC_KEY = "BNxSuaChavePublicaAquiSeHouver";
-
-    function calcularCorTextoContraste(hexColor) {
-      if (!hexColor) return '#ffffff';
-      let c = hexColor.replace('#', '');
-      if (c.length === 3) c = c.split('').map(char => char + char).join('');
-      const r = parseInt(c.substr(0, 2), 16) || 0;
-      const g = parseInt(c.substr(2, 2), 16) || 0;
-      const b = parseInt(c.substr(4, 2), 16) || 0;
-      const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
-      return (yiq >= 170) ? '#0f172a' : '#ffffff';
-    }
-
-    function urlBase64ToUint8Array(base64String) {
-      const padding = '='.repeat((4 - base64String.length % 4) % 4);
-      const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
-      const rawData = window.atob(base64);
-      const outputArray = new Uint8Array(rawData.length);
-      for (let i = 0; i < rawData.length; ++i) {
-        outputArray[i] = rawData.charCodeAt(i);
-      }
-      return outputArray;
-    }
-
+    const FOTO_PADRAO = "https://images.unsplash.com/photo-1517256064527-09c73fc73e38?w=500&q=80";
     let deferredPrompt = null;
+    let usuarioTemCpfVinculado = false;
+    let html5QrcodeScanner = null;
+
     const isIos = () => /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
     const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 
+    // 2. Ouvintes de Instalação PWA
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
       deferredPrompt = e;
@@ -417,7 +400,7 @@
       }
     }
 
-    // BOTÃO 1: INSTALAR APLICATIVO
+    // 3. Ação: Botão Instalar
     async function acionarInstalacao() {
       if (isIos()) {
         document.getElementById('iosOverlay').style.display = 'block';
@@ -431,7 +414,7 @@
           atualizarCamadaInterface();
         }
       } else {
-        alert("Para instalar no seu celular:\n1. Toque nos 3 pontinhos do Chrome (canto superior direito).\n2. Selecione 'Instalar aplicativo' ou 'Adicionar à tela inicial'.");
+        alert("Para instalar no seu celular:\n\n1. Toque nos 3 pontinhos (menu do Chrome) no topo direito.\n2. Selecione 'Instalar aplicativo' ou 'Adicionar à tela inicial'.");
       }
     }
 
@@ -440,7 +423,7 @@
       setTimeout(() => document.getElementById('iosOverlay').style.display = 'none', 300);
     }
 
-    // BOTÃO 2: RECEBER NOTIFICAÇÕES
+    // 4. Ação: Botão Notificações
     async function ativarPush() {
       const btn = document.getElementById('btn-push-action');
       if (btn) {
@@ -454,12 +437,12 @@
         }
 
         if (Notification.permission === "denied") {
-          throw new Error("As notificações estão bloqueadas no navegador. Acesse as configurações do site e mude para Permitir.");
+          throw new Error("As notificações estão bloqueadas no navegador. Acesse as configurações do site e altere para Permitir.");
         }
 
         const perm = await Notification.requestPermission();
         if (perm !== "granted") {
-          throw new Error("Permissão de notificação não foi concedida.");
+          throw new Error("Permissão de notificação negada.");
         }
 
         if ('serviceWorker' in navigator) {
@@ -468,16 +451,6 @@
           await navigator.serviceWorker.ready;
 
           let sub = await reg.pushManager.getSubscription();
-
-          if (!sub && VAPID_PUBLIC_KEY && VAPID_PUBLIC_KEY.length > 20) {
-            sub = await reg.pushManager.subscribe({
-              userVisibleOnly: true,
-              applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-            }).catch(e => {
-              console.warn("Inscrição com chave VAPID falhou, tentando registro local:", e);
-            });
-          }
-
           if (sub && typeof Api !== 'undefined' && Api.salvarInscricaoPush) {
             await Api.salvarInscricaoPush(COMERCIO_SLUG, MEU_DEVICE_ID, sub.toJSON());
           }
@@ -496,29 +469,27 @@
       }
     }
 
-    const FOTO_PADRAO = "https://images.unsplash.com/photo-1517256064527-09c73fc73e38?w=500&q=80";
-    let html5QrcodeScanner = null;
-    let usuarioTemCpfVinculado = false;
-
-    function navegarAba(viewId, btn) {
-      document.querySelectorAll('.tab-view').forEach(v => v.classList.remove('active'));
-      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-      btn.classList.add('active');
-      document.getElementById(viewId).classList.add('active');
-
-      const alertaCpf = document.getElementById('alerta-vincular');
-      if (viewId === 'view-fidelidade' && !usuarioTemCpfVinculado) {
-        alertaCpf.style.display = 'flex';
-      } else {
-        alertaCpf.style.display = 'none';
-      }
-      atualizarCamadaInterface();
+    // 5. Contraste Dinâmico
+    function calcularCorTextoContraste(hexColor) {
+      if (!hexColor) return '#ffffff';
+      let c = hexColor.replace('#', '');
+      if (c.length === 3) c = c.split('').map(char => char + char).join('');
+      const r = parseInt(c.substr(0, 2), 16) || 0;
+      const g = parseInt(c.substr(2, 2), 16) || 0;
+      const b = parseInt(c.substr(4, 2), 16) || 0;
+      const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+      return (yiq >= 170) ? '#0f172a' : '#ffffff';
     }
 
-    async function aplicarIdentidadeVisual() {
+    // 6. Carregamento dos Dados da Loja Direto do Banco (Sem risco de timeout)
+    async function carregarDadosLoja() {
       try {
-        if (!supabaseClient) return;
-        const { data: loja } = await supabaseClient
+        if (!supabaseClient) {
+          document.getElementById('header-loja-nome').innerText = COMERCIO_SLUG;
+          return;
+        }
+
+        const { data: loja, error } = await supabaseClient
           .from('comercios')
           .select('*')
           .eq('slug', COMERCIO_SLUG)
@@ -527,7 +498,7 @@
         if (loja) {
           document.title = loja.nome_fantasia || "Bom Freguês";
           document.getElementById('header-loja-nome').innerText = loja.nome_fantasia || COMERCIO_SLUG;
-          
+
           if (loja.cor_primaria) {
             const corFundo = loja.cor_primaria;
             const corTexto = calcularCorTextoContraste(corFundo);
@@ -563,16 +534,27 @@
           document.getElementById('header-loja-nome').innerText = COMERCIO_SLUG;
         }
       } catch (e) {
-        console.warn("Aviso ao carregar tema da loja:", e);
+        console.warn("Aviso ao carregar tema:", e);
         document.getElementById('header-loja-nome').innerText = COMERCIO_SLUG;
       }
     }
 
+    // 7. Carregamento de Promoções Direto do Banco
     async function carregarOfertas() {
       const box = document.getElementById('lista-promos');
       try {
-        const promocoes = await Api.listarPromocoes(COMERCIO_SLUG);
-        if (!promocoes || !promocoes.length) {
+        if (!supabaseClient) {
+          box.innerHTML = `<div class="showcase-card" style="padding:28px; text-align:center; font-size:13px; color:var(--cor-subtexto);">Nenhuma promoção ativa no momento.</div>`;
+          return;
+        }
+
+        const { data: promocoes, error } = await supabaseClient
+          .from('promocoes')
+          .select('*')
+          .eq('comercio_slug', COMERCIO_SLUG)
+          .order('criado_em', { ascending: false });
+
+        if (!promocoes || promocoes.length === 0) {
           box.innerHTML = `<div class="showcase-card" style="padding:28px; text-align:center; font-size:13px; color:var(--cor-subtexto);">Nenhuma promoção ativa no momento.</div>`;
           return;
         }
@@ -588,48 +570,71 @@
             </div>
           </div>
         `).join('');
-      } catch (err) { 
+      } catch (err) {
         box.innerHTML = `<div class="showcase-card" style="padding:28px; text-align:center; font-size:13px; color:var(--cor-subtexto);">Nenhuma promoção ativa no momento.</div>`;
       }
     }
 
+    // 8. Saldo de Pontos
     async function carregarPontos() {
       try {
-        const data = await Api.obterPontos(COMERCIO_SLUG, MEU_DEVICE_ID);
-        document.getElementById('user-pontos').innerHTML = `${data.pontos || 0} <span>pts</span>`;
-        if (data.cpf) {
-          usuarioTemCpfVinculado = true;
-          document.getElementById('alerta-vincular').style.display = 'none';
+        if (typeof Api !== 'undefined' && Api.obterPontos) {
+          const data = await Api.obterPontos(COMERCIO_SLUG, MEU_DEVICE_ID);
+          document.getElementById('user-pontos').innerHTML = `${data.pontos || 0} <span>pts</span>`;
+          if (data.cpf) {
+            usuarioTemCpfVinculado = true;
+            document.getElementById('alerta-vincular').style.display = 'none';
+          }
         }
       } catch (e) {
         document.getElementById('user-pontos').innerHTML = `0 <span>pts</span>`;
       }
     }
 
+    // 9. Prêmios do Catálogo
     async function carregarPremios() {
       const box = document.getElementById('lista-premios');
       try {
-        const premios = await Api.listarPremios(COMERCIO_SLUG);
-        if (!premios || !premios.length) {
-          box.innerHTML = `<div class="showcase-card" style="padding:28px; text-align:center; font-size:13px; color:var(--cor-subtexto);">Nenhum prêmio cadastrado.</div>`;
-          return;
-        }
+        if (typeof Api !== 'undefined' && Api.listarPremios) {
+          const premios = await Api.listarPremios(COMERCIO_SLUG);
+          if (!premios || !premios.length) {
+            box.innerHTML = `<div class="showcase-card" style="padding:28px; text-align:center; font-size:13px; color:var(--cor-subtexto);">Nenhum prêmio cadastrado.</div>`;
+            return;
+          }
 
-        box.innerHTML = premios.map(p => `
-          <div class="showcase-card">
-            <img class="showcase-media" src="${p.imagem_url || FOTO_PADRAO}" onerror="this.src='${FOTO_PADRAO}'">
-            <div class="showcase-info">
-              <h4 class="showcase-title">${p.titulo}</h4>
-              <div class="showcase-footer">
-                <span class="cost-badge">${p.pontos} pts</span>
-                <button class="btn-claim" onclick="resgatarItem(${p.id}, '${p.titulo}')">Resgatar</button>
+          box.innerHTML = premios.map(p => `
+            <div class="showcase-card">
+              <img class="showcase-media" src="${p.imagem_url || FOTO_PADRAO}" onerror="this.src='${FOTO_PADRAO}'">
+              <div class="showcase-info">
+                <h4 class="showcase-title">${p.titulo}</h4>
+                <div class="showcase-footer">
+                  <span class="cost-badge">${p.pontos} pts</span>
+                  <button class="btn-claim" onclick="resgatarItem(${p.id}, '${p.titulo}')">Resgatar</button>
+                </div>
               </div>
             </div>
-          </div>
-        `).join('');
-      } catch (e) { 
+          `).join('');
+          return;
+        }
+        box.innerHTML = `<div class="showcase-card" style="padding:28px; text-align:center; font-size:13px; color:var(--cor-subtexto);">Nenhum prêmio cadastrado.</div>`;
+      } catch (e) {
         box.innerHTML = `<div class="showcase-card" style="padding:28px; text-align:center; font-size:13px; color:var(--cor-subtexto);">Nenhum prêmio cadastrado.</div>`;
       }
+    }
+
+    function navegarAba(viewId, btn) {
+      document.querySelectorAll('.tab-view').forEach(v => v.classList.remove('active'));
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById(viewId).classList.add('active');
+
+      const alertaCpf = document.getElementById('alerta-vincular');
+      if (viewId === 'view-fidelidade' && !usuarioTemCpfVinculado) {
+        alertaCpf.style.display = 'flex';
+      } else {
+        alertaCpf.style.display = 'none';
+      }
+      atualizarCamadaInterface();
     }
 
     async function resgatarItem(id, titulo) {
@@ -695,13 +700,12 @@
       }
     }
 
-    (async () => {
-      await aplicarIdentidadeVisual();
-      await carregarOfertas();
-      await carregarPontos();
-      await carregarPremios();
-      atualizarCamadaInterface();
-    })();
+    // Disparo imediato das rotinas independentes
+    carregarDadosLoja();
+    carregarOfertas();
+    carregarPontos();
+    carregarPremios();
+    atualizarCamadaInterface();
   </script>
 </body>
 </html>
