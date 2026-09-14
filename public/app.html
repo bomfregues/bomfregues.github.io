@@ -10,7 +10,8 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="theme-color" content="#ffffff">
 
-  <link id="dynamic-manifest" rel="manifest">
+  <!-- Link físico estático obrigatório para WebAPK real sem ícone de atalho -->
+  <link rel="manifest" href="manifest.json">
   <link id="apple-touch-icon-tag" rel="apple-touch-icon" href="img/icon-192.png">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -384,13 +385,13 @@
     const isIos = () => /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
     const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 
-    // Registra Service Worker de imediato
+    // Registra o Service Worker imediatamente para habilitar o WebAPK nativo do Chrome
     if ('serviceWorker' in navigator) {
       const baseUrlWorker = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
       navigator.serviceWorker.register(baseUrlWorker + 'sw.js', { scope: baseUrlWorker }).catch(() => {});
     }
 
-    // Captura o evento nativo do Android
+    // Captura o evento nativo de instalação do Chrome no Android
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
       deferredPrompt = e;
@@ -436,7 +437,7 @@
       }
     }
 
-    // DISPARO DIRETO DE INSTALAÇÃO (SEM ALERTAS DE INSTRUÇÃO NO ANDROID)
+    // Disparo imediato do prompt nativo
     async function acionarInstalacao() {
       if (isIos()) {
         document.getElementById('iosOverlay').style.display = 'block';
@@ -453,21 +454,21 @@
           atualizarCamadaInterface();
         }
       } else {
+        // Se tocado antes do Chrome registrar o evento, aciona o prompt assim que liberado
         const btn = document.getElementById('btn-install-action');
         btn.innerText = "Preparando instalação...";
         btn.disabled = true;
 
-        // Aguarda 1.5s pelo evento do Chrome se ainda não tiver disparado
-        let checks = 0;
-        const interval = setInterval(() => {
-          checks++;
+        let tries = 0;
+        const checkPrompt = setInterval(() => {
+          tries++;
           if (deferredPrompt) {
-            clearInterval(interval);
+            clearInterval(checkPrompt);
             btn.innerText = "Instalar aplicativo no celular";
             btn.disabled = false;
             deferredPrompt.prompt();
-          } else if (checks > 8) {
-            clearInterval(interval);
+          } else if (tries > 8) {
+            clearInterval(checkPrompt);
             btn.innerText = "Instalar aplicativo no celular";
             btn.disabled = false;
           }
@@ -480,7 +481,7 @@
       setTimeout(() => document.getElementById('iosOverlay').style.display = 'none', 300);
     }
 
-    // GERA O ÍCONE DA LOJA COM COR DO HEADER PARA FICAR BONITO NO ANDROID E NO IOS
+    // Renderiza o ícone da marca com a cor do header no fundo para o iOS Safari
     function gerarIconeCustomizado(logoUrl, corFundo) {
       return new Promise((resolve) => {
         const canvas = document.createElement('canvas');
@@ -488,7 +489,6 @@
         canvas.height = 512;
         const ctx = canvas.getContext('2d');
 
-        // Preenche o fundo integralmente com a cor primária da loja
         ctx.fillStyle = corFundo || '#1c1917';
         ctx.fillRect(0, 0, 512, 512);
 
@@ -500,8 +500,7 @@
         const img = new Image();
         img.crossOrigin = "anonymous";
         img.onload = () => {
-          // Margem segura para formato maskable
-          const padding = 70;
+          const padding = 64;
           const maxW = 512 - (padding * 2);
           const maxH = 512 - (padding * 2);
 
@@ -527,41 +526,7 @@
       });
     }
 
-    function aplicarManifestoCustomizado(nomeLoja, iconeBase64, corFundo) {
-      // Atualiza Apple Touch Icon para iOS
-      const appleTag = document.getElementById('apple-touch-icon-tag');
-      if (appleTag) appleTag.href = iconeBase64;
-
-      // Monta manifesto com escopo e ícone maskable completo para Android gerar WebAPK real
-      const startUrl = `${window.location.origin}${window.location.pathname}?loja=${COMERCIO_SLUG}`;
-      const manifestJSON = {
-        name: nomeLoja || "Bom Freguês",
-        short_name: nomeLoja || "Clube",
-        id: `bf_${COMERCIO_SLUG}`,
-        start_url: startUrl,
-        scope: `${window.location.origin}${window.location.pathname}?loja=${COMERCIO_SLUG}`,
-        display: "standalone",
-        background_color: corFundo || "#ffffff",
-        theme_color: corFundo || "#1c1917",
-        icons: [
-          {
-            src: iconeBase64,
-            sizes: "192x192 512x512",
-            type: "image/png",
-            purpose: "any maskable"
-          }
-        ]
-      };
-
-      const blob = new Blob([JSON.stringify(manifestJSON)], { type: 'application/manifest+json' });
-      const manifestUrl = URL.createObjectURL(blob);
-      const manifestLink = document.getElementById('dynamic-manifest');
-      if (manifestLink) {
-        manifestLink.href = manifestUrl;
-      }
-    }
-
-    // ATIVAÇÃO DE NOTIFICAÇÕES
+    // Ativação e registro de Push Notifications
     async function ativarPush() {
       const btn = document.getElementById('btn-push-action');
       if (btn) {
@@ -571,11 +536,11 @@
 
       try {
         if (!("Notification" in window)) {
-          throw new Error("Seu dispositivo não suporta notificações web.");
+          throw new Error("Seu dispositivo não suporta notificações web nativas.");
         }
 
         if (isIos() && !isStandalone()) {
-          throw new Error("No iPhone, você deve primeiro adicionar o app à Tela de Início para ativar avisos.");
+          throw new Error("No iPhone, você deve primeiro adicionar à Tela de Início para ativar as notificações.");
         }
 
         const perm = await Notification.requestPermission();
@@ -665,9 +630,10 @@
             img.style.display = 'block';
           }
 
-          // Gera o ícone com a cor do header e logo centralizada
+          // Renderiza o ícone com a cor do header para o iOS
           const iconeCustom = await gerarIconeCustomizado(loja.logo_url, loja.cor_primaria);
-          aplicarManifestoCustomizado(loja.nome_fantasia, iconeCustom, loja.cor_primaria);
+          const appleTag = document.getElementById('apple-touch-icon-tag');
+          if (appleTag) appleTag.href = iconeCustom;
         } else {
           document.getElementById('header-loja-nome').innerText = COMERCIO_SLUG;
         }
@@ -834,6 +800,7 @@
       }
     }
 
+    // Inicialização da interface e dados
     carregarDadosLoja();
     carregarOfertas();
     carregarPontos();

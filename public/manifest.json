@@ -2,8 +2,10 @@
   "name": "Bom Freguês",
   "short_name": "Bom Freguês",
   "start_url": "app.html",
+  "id": "/public/app.html",
   "scope": "./",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#ffffff",
   "theme_color": "#1c1917",
   "icons": [
