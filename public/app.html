@@ -253,18 +253,13 @@
 
     const VAPID_PUBLIC_KEY = "SUA_CHAVE_PUBLICA_VAPID_AQUI";
 
-    // Função de Luminância e Contraste Dinâmico (Preto para fundos claros / Branco para fundos escuros)
     function calcularCorTextoContraste(hexColor) {
       if (!hexColor) return '#ffffff';
       let c = hexColor.replace('#', '');
-      if (c.length === 3) {
-        c = c.split('').map(char => char + char).join('');
-      }
+      if (c.length === 3) c = c.split('').map(char => char + char).join('');
       const r = parseInt(c.substr(0, 2), 16) || 0;
       const g = parseInt(c.substr(2, 2), 16) || 0;
       const b = parseInt(c.substr(4, 2), 16) || 0;
-      
-      // Fórmula padrão de luminância perceptual da W3C
       const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
       return (yiq >= 170) ? '#0f172a' : '#ffffff';
     }
@@ -278,6 +273,48 @@
         outputArray[i] = rawData.charCodeAt(i);
       }
       return outputArray;
+    }
+
+    // GERAÇÃO DINÂMICA DO MANIFESTO MULTI-TENANT
+    // Define um id e start_url exclusivos para que cada loja seja um app separado no celular
+    function injetarManifestDinamico(nomeLoja, iconeUrl, corPrimaria) {
+      const startUrl = `${window.location.origin}${window.location.pathname}?loja=${COMERCIO_SLUG}`;
+      const appId = `bomfregues_${COMERCIO_SLUG}`;
+      const iconPadrao = iconeUrl || "https://images.unsplash.com/photo-1517256064527-09c73fc73e38?w=192&q=80";
+
+      const dynamicManifest = {
+        name: nomeLoja || "Clube Bom Freguês",
+        short_name: nomeLoja || "Clube",
+        id: appId,
+        start_url: startUrl,
+        scope: `${window.location.origin}${window.location.pathname}?loja=${COMERCIO_SLUG}`,
+        display: "standalone",
+        background_color: "#ffffff",
+        theme_color: corPrimaria || "#1c1917",
+        icons: [
+          {
+            src: iconPadrao,
+            sizes: "192x192",
+            type: "image/png"
+          },
+          {
+            src: iconPadrao,
+            sizes: "512x512",
+            type: "image/png"
+          }
+        ]
+      };
+
+      const manifestBlob = new Blob([JSON.stringify(dynamicManifest)], { type: 'application/json' });
+      const manifestURL = URL.createObjectURL(manifestBlob);
+
+      let linkTag = document.querySelector('link[rel="manifest"]');
+      if (!linkTag) {
+        linkTag = document.createElement('link');
+        linkTag.rel = 'manifest';
+        document.head.appendChild(linkTag);
+      }
+      linkTag.href = manifestURL;
     }
 
     let deferredPrompt = null;
@@ -332,7 +369,7 @@
           atualizarCamadaInterface();
         }
       } else {
-        alert("Para instalar este aplicativo, toque no menu do seu navegador e selecione 'Adicionar à tela inicial'.");
+        alert("Para instalar este aplicativo no seu celular, toque nos 3 pontinhos do navegador e selecione 'Adicionar à tela inicial'.");
       }
     }
 
@@ -506,7 +543,6 @@
       atualizarCamadaInterface();
     }
 
-    // APLICAÇÃO DE CORES COM CÁLCULO DE CONTRASTE AUTOMÁTICO
     async function aplicarIdentidadeVisual() {
       try {
         if (!supabaseClient) return;
@@ -526,7 +562,6 @@
             const corSubTexto = (corTexto === '#0f172a') ? '#57534e' : 'rgba(255,255,255,0.85)';
             const bordaInferior = (corTexto === '#0f172a') ? '1px solid #e7e5e4' : 'none';
 
-            // Atualiza as variáveis CSS e os estilos diretos do Header
             document.documentElement.style.setProperty('--cor-primaria', corFundo);
             document.documentElement.style.setProperty('--cor-texto-header', corTexto);
             document.documentElement.style.setProperty('--cor-subtexto-header', corSubTexto);
@@ -552,12 +587,17 @@
             img.src = loja.logo_url;
             img.style.display = 'block';
           }
+
+          // Injeta o manifesto PWA específico desta loja
+          injetarManifestDinamico(loja.nome_fantasia, loja.logo_url || loja.icone_pwa_url, loja.cor_primaria);
         } else {
           document.getElementById('header-loja-nome').innerText = COMERCIO_SLUG;
+          injetarManifestDinamico(COMERCIO_SLUG, null, null);
         }
       } catch (e) {
         console.warn("Aviso ao carregar tema da loja:", e);
         document.getElementById('header-loja-nome').innerText = COMERCIO_SLUG;
+        injetarManifestDinamico(COMERCIO_SLUG, null, null);
       }
     }
 
