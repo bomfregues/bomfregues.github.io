@@ -229,17 +229,41 @@
     .nav-item svg { width: 22px; height: 22px; }
     .nav-item.active { color: var(--cor-destaque); }
 
-    .ios-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 999; }
+    .ios-overlay { 
+      display: none; 
+      position: fixed; 
+      inset: 0; 
+      background: rgba(0,0,0,0.5); 
+      z-index: 999; 
+    }
     .ios-sheet {
-      position: fixed; bottom: 0; left: 0; right: 0; background: #ffffff;
-      border-radius: 24px 24px 0 0; padding: 26px 20px 32px; max-width: 440px; margin: 0 auto;
-      z-index: 1000; transform: translateY(100%); transition: transform 0.3s ease-out;
+      position: fixed; 
+      bottom: 0; 
+      left: 0; 
+      right: 0; 
+      background: #ffffff;
+      border-radius: 24px 24px 0 0; 
+      padding: 26px 20px 32px; 
+      max-width: 440px; 
+      margin: 0 auto;
+      z-index: 1000; 
+      transform: translateY(100%); 
+      transition: transform 0.3s ease-out;
     }
     .ios-sheet.active { transform: translateY(0); }
     .ios-step { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px; }
     .ios-step-num {
-      background: #f1f5f9; color: #1c1917; font-weight: 800; font-size: 12px;
-      width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+      background: #f1f5f9; 
+      color: #1c1917; 
+      font-weight: 800; 
+      font-size: 12px;
+      width: 24px; 
+      height: 24px; 
+      border-radius: 50%; 
+      display: flex; 
+      align-items: center; 
+      justify-content: center; 
+      flex-shrink: 0;
     }
   </style>
 
@@ -278,13 +302,11 @@
 
     <div class="section-spacer-top" id="section-spacer"></div>
 
-    <!-- ABA 1: Ofertas -->
     <div id="view-promos" class="tab-view active">
       <h2 class="headline-bar-fixed">Ofertas da Loja</h2>
       <div id="lista-promos">Carregando ofertas...</div>
     </div>
 
-    <!-- ABA 2: Fidelidade -->
     <div id="view-fidelidade" class="tab-view">
       <div class="points-hub-card">
         <div class="points-total" id="user-pontos">0 <span>pts</span></div>
@@ -316,6 +338,7 @@
     </button>
   </nav>
 
+  <!-- Modal com instruções nativas do iOS (Safari) -->
   <div class="ios-overlay" id="iosOverlay" onclick="fecharModalIos()"></div>
   <div class="ios-sheet" id="iosSheet">
     <h3 style="font-size:16px; font-weight:800; text-align:center; margin-bottom:4px;">Instalar no iPhone</h3>
@@ -341,7 +364,6 @@
   </div>
 
   <script>
-    // 1. Definições Globais e Dispositivo
     const urlParams = new URLSearchParams(window.location.search);
     const COMERCIO_SLUG = urlParams.get('loja') || "singello";
 
@@ -359,7 +381,7 @@
     const isIos = () => /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
     const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 
-    // 2. Ouvintes de Instalação PWA
+    // Captura o prompt nativo de instalação do Chrome/Android
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
       deferredPrompt = e;
@@ -400,7 +422,7 @@
       }
     }
 
-    // 3. Ação: Botão Instalar
+    // Instalação: Prompt direto no Android e Modal no iOS
     async function acionarInstalacao() {
       if (isIos()) {
         document.getElementById('iosOverlay').style.display = 'block';
@@ -408,13 +430,18 @@
       } else if (deferredPrompt) {
         deferredPrompt.prompt();
         const { outcome } = await deferredPrompt.userChoice;
-        deferredPrompt = null;
         if (outcome === 'accepted') {
+          deferredPrompt = null;
           document.getElementById('btn-install-action').style.display = 'none';
           atualizarCamadaInterface();
         }
       } else {
-        alert("Para instalar no seu celular:\n\n1. Toque nos 3 pontinhos (menu do Chrome) no topo direito.\n2. Selecione 'Instalar aplicativo' ou 'Adicionar à tela inicial'.");
+        // Se o evento ainda estiver aguardando engajamento do navegador
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.ready.then(() => {
+            if (deferredPrompt) deferredPrompt.prompt();
+          });
+        }
       }
     }
 
@@ -423,7 +450,7 @@
       setTimeout(() => document.getElementById('iosOverlay').style.display = 'none', 300);
     }
 
-    // 4. Ação: Botão Notificações
+    // Notificações: Solicitação nativa e registro no Supabase
     async function ativarPush() {
       const btn = document.getElementById('btn-push-action');
       if (btn) {
@@ -433,11 +460,11 @@
 
       try {
         if (!("Notification" in window)) {
-          throw new Error("Seu navegador não suporta notificações web nativas.");
+          throw new Error("Seu dispositivo não suporta notificações web nativas.");
         }
 
         if (Notification.permission === "denied") {
-          throw new Error("As notificações estão bloqueadas no navegador. Acesse as configurações do site e altere para Permitir.");
+          throw new Error("As notificações estão bloqueadas no navegador para este site.");
         }
 
         const perm = await Notification.requestPermission();
@@ -469,7 +496,6 @@
       }
     }
 
-    // 5. Contraste Dinâmico
     function calcularCorTextoContraste(hexColor) {
       if (!hexColor) return '#ffffff';
       let c = hexColor.replace('#', '');
@@ -481,7 +507,6 @@
       return (yiq >= 170) ? '#0f172a' : '#ffffff';
     }
 
-    // 6. Carregamento dos Dados da Loja Direto do Banco (Sem risco de timeout)
     async function carregarDadosLoja() {
       try {
         if (!supabaseClient) {
@@ -489,7 +514,7 @@
           return;
         }
 
-        const { data: loja, error } = await supabaseClient
+        const { data: loja } = await supabaseClient
           .from('comercios')
           .select('*')
           .eq('slug', COMERCIO_SLUG)
@@ -534,12 +559,10 @@
           document.getElementById('header-loja-nome').innerText = COMERCIO_SLUG;
         }
       } catch (e) {
-        console.warn("Aviso ao carregar tema:", e);
         document.getElementById('header-loja-nome').innerText = COMERCIO_SLUG;
       }
     }
 
-    // 7. Carregamento de Promoções Direto do Banco
     async function carregarOfertas() {
       const box = document.getElementById('lista-promos');
       try {
@@ -548,7 +571,7 @@
           return;
         }
 
-        const { data: promocoes, error } = await supabaseClient
+        const { data: promocoes } = await supabaseClient
           .from('promocoes')
           .select('*')
           .eq('comercio_slug', COMERCIO_SLUG)
@@ -575,7 +598,6 @@
       }
     }
 
-    // 8. Saldo de Pontos
     async function carregarPontos() {
       try {
         if (typeof Api !== 'undefined' && Api.obterPontos) {
@@ -591,7 +613,6 @@
       }
     }
 
-    // 9. Prêmios do Catálogo
     async function carregarPremios() {
       const box = document.getElementById('lista-premios');
       try {
@@ -700,7 +721,7 @@
       }
     }
 
-    // Disparo imediato das rotinas independentes
+    // Inicialização da interface e dados
     carregarDadosLoja();
     carregarOfertas();
     carregarPontos();
