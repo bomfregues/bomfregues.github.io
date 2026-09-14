@@ -60,6 +60,7 @@
       position: relative;
       z-index: 10;
       margin-bottom: 0 !important;
+      transition: background-color 0.2s ease, border-color 0.2s ease;
     }
 
     .clean-logo-wrap {
@@ -87,11 +88,13 @@
       font-weight: 800; 
       color: var(--cor-texto-header) !important; 
       line-height: 1.2; 
+      transition: color 0.2s ease;
     }
     .header-sub-clean { 
       font-size: 11px; 
       color: var(--cor-subtexto-header) !important; 
       margin-top: 3px; 
+      transition: color 0.2s ease;
     }
 
     .container, .container-app, .container-app-shield {
@@ -239,7 +242,6 @@
   <script src="js/theme.js"></script>
 
   <script>
-    // 1. Resolve Parâmetros da Loja e Identificador do Dispositivo
     const urlParams = new URLSearchParams(window.location.search);
     const COMERCIO_SLUG = urlParams.get('loja') || "singello";
 
@@ -250,6 +252,22 @@
     }
 
     const VAPID_PUBLIC_KEY = "SUA_CHAVE_PUBLICA_VAPID_AQUI";
+
+    // Função de Luminância e Contraste Dinâmico (Preto para fundos claros / Branco para fundos escuros)
+    function calcularCorTextoContraste(hexColor) {
+      if (!hexColor) return '#ffffff';
+      let c = hexColor.replace('#', '');
+      if (c.length === 3) {
+        c = c.split('').map(char => char + char).join('');
+      }
+      const r = parseInt(c.substr(0, 2), 16) || 0;
+      const g = parseInt(c.substr(2, 2), 16) || 0;
+      const b = parseInt(c.substr(4, 2), 16) || 0;
+      
+      // Fórmula padrão de luminância perceptual da W3C
+      const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+      return (yiq >= 170) ? '#0f172a' : '#ffffff';
+    }
 
     function urlBase64ToUint8Array(base64String) {
       const padding = '='.repeat((4 - base64String.length % 4) % 4);
@@ -488,6 +506,7 @@
       atualizarCamadaInterface();
     }
 
+    // APLICAÇÃO DE CORES COM CÁLCULO DE CONTRASTE AUTOMÁTICO
     async function aplicarIdentidadeVisual() {
       try {
         if (!supabaseClient) return;
@@ -502,9 +521,26 @@
           document.getElementById('header-loja-nome').innerText = loja.nome_fantasia || COMERCIO_SLUG;
           
           if (loja.cor_primaria) {
-            document.documentElement.style.setProperty('--cor-primaria', loja.cor_primaria);
-            document.getElementById('pwa-header').style.backgroundColor = loja.cor_primaria;
+            const corFundo = loja.cor_primaria;
+            const corTexto = calcularCorTextoContraste(corFundo);
+            const corSubTexto = (corTexto === '#0f172a') ? '#57534e' : 'rgba(255,255,255,0.85)';
+            const bordaInferior = (corTexto === '#0f172a') ? '1px solid #e7e5e4' : 'none';
+
+            // Atualiza as variáveis CSS e os estilos diretos do Header
+            document.documentElement.style.setProperty('--cor-primaria', corFundo);
+            document.documentElement.style.setProperty('--cor-texto-header', corTexto);
+            document.documentElement.style.setProperty('--cor-subtexto-header', corSubTexto);
+            document.documentElement.style.setProperty('--borda-header', bordaInferior);
+
+            const pwaHeader = document.getElementById('pwa-header');
+            if (pwaHeader) {
+              pwaHeader.style.backgroundColor = corFundo;
+              pwaHeader.style.borderBottom = bordaInferior;
+            }
+            document.getElementById('header-loja-nome').style.color = corTexto;
+            document.getElementById('header-loja-sub').style.color = corSubTexto;
           }
+
           if (loja.cor_secundaria) {
             document.documentElement.style.setProperty('--cor-secundaria', loja.cor_secundaria);
           }
@@ -652,7 +688,6 @@
       }
     }
 
-    // Inicialização da Página
     (async () => {
       await aplicarIdentidadeVisual();
       await carregarOfertas();
