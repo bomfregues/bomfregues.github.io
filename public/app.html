@@ -10,8 +10,9 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="theme-color" content="#ffffff">
 
-  <link rel="manifest" href="manifest.json">
-  <link id="apple-touch-icon-tag" rel="apple-touch-icon" href="img/icon-192.png">
+  <!-- Tags dinâmicas de ícone e manifesto -->
+  <link id="apple-touch-icon-tag" rel="apple-touch-icon">
+  <link id="dynamic-manifest" rel="manifest">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com">
@@ -384,14 +385,12 @@
     const isIos = () => /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
     const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 
-    // Registro imediato do Service Worker no escopo padrão
+    // Registra Service Worker de imediato
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('sw.js').catch(err => {
-        console.warn("Falha no registro do Service Worker:", err);
-      });
+      const baseUrlWorker = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
+      navigator.serviceWorker.register(baseUrlWorker + 'sw.js', { scope: baseUrlWorker }).catch(() => {});
     }
 
-    // Captura global do evento de instalação do Chrome
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
       deferredPrompt = e;
@@ -432,7 +431,7 @@
       }
     }
 
-    // AÇÃO DE INSTALAÇÃO SÍNCRONA
+    // Instalação nativa com tratamento de contexto
     async function acionarInstalacao() {
       if (isIos()) {
         document.getElementById('iosOverlay').style.display = 'block';
@@ -456,7 +455,8 @@
       setTimeout(() => document.getElementById('iosOverlay').style.display = 'none', 300);
     }
 
-    // Geração dinâmica do ícone para Apple Touch Icon com fundo da cor do cabeçalho
+    // GERA O ÍCONE REAL DA LOJA USANDO CANVAS
+    // Desenha o fundo com a cor do header da loja e coloca o logo centralizado
     function gerarIconeCustomizado(logoUrl, corFundo) {
       return new Promise((resolve) => {
         const canvas = document.createElement('canvas');
@@ -501,7 +501,40 @@
       });
     }
 
-    // Ativação de Notificações
+    // Configura o manifesto dinâmico com o ícone real e o ID da loja
+    function configurarManifestoLoja(nomeLoja, iconeBase64, corFundo) {
+      const appleTag = document.getElementById('apple-touch-icon-tag');
+      if (appleTag) appleTag.href = iconeBase64;
+
+      const startUrl = `${window.location.origin}${window.location.pathname}?loja=${COMERCIO_SLUG}`;
+      const manifestObj = {
+        name: nomeLoja || "Bom Freguês",
+        short_name: nomeLoja || "Clube",
+        id: `/bomfregues_${COMERCIO_SLUG}`,
+        start_url: startUrl,
+        scope: `${window.location.origin}${window.location.pathname}?loja=${COMERCIO_SLUG}`,
+        display: "standalone",
+        background_color: corFundo || "#ffffff",
+        theme_color: corFundo || "#1c1917",
+        icons: [
+          {
+            src: iconeBase64,
+            sizes: "192x192 512x512",
+            type: "image/png",
+            purpose: "any maskable"
+          }
+        ]
+      };
+
+      const manifestBlob = new Blob([JSON.stringify(manifestObj)], { type: 'application/json' });
+      const manifestUrl = URL.createObjectURL(manifestBlob);
+      const manifestTag = document.getElementById('dynamic-manifest');
+      if (manifestTag) {
+        manifestTag.href = manifestUrl;
+      }
+    }
+
+    // Ativação e registro de Push Notifications
     async function ativarPush() {
       const btn = document.getElementById('btn-push-action');
       if (btn) {
@@ -605,9 +638,9 @@
             img.style.display = 'block';
           }
 
+          // Monta o ícone customizado com a logo e a cor do cabeçalho da loja
           const iconeCustom = await gerarIconeCustomizado(loja.logo_url, loja.cor_primaria);
-          const appleTag = document.getElementById('apple-touch-icon-tag');
-          if (appleTag) appleTag.href = iconeCustom;
+          configurarManifestoLoja(loja.nome_fantasia, iconeCustom, loja.cor_primaria);
         } else {
           document.getElementById('header-loja-nome').innerText = COMERCIO_SLUG;
         }
