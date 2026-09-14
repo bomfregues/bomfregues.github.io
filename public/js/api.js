@@ -121,7 +121,25 @@ const Api = {
   },
 
   async criarPromocao(dados) {
-    // 1. Seu código existente que insere a promoção na tabela 'promocoes' do Supabase...
+    let imagemFinalUrl = "";
+
+    // 1. Se houver imagem em Base64, faz o upload para o Supabase Storage
+    if (dados.imagem_base64 && dados.imagem_base64.startsWith('data:image')) {
+      const base64Data = dados.imagem_base64.replace(/^data:image\/\w+;base64,/, '');
+      const bytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+      const fileName = `promocoes/${dados.slug}_${Date.now()}.png`;
+
+      const { error: upErr } = await supabaseClient.storage
+        .from('public-uploads')
+        .upload(fileName, bytes, { contentType: 'image/png', upsert: true });
+
+      if (!upErr) {
+        const { data: pubData } = supabaseClient.storage.from('public-uploads').getPublicUrl(fileName);
+        imagemFinalUrl = pubData.publicUrl;
+      }
+    }
+
+    // 2. Insere a promoção na tabela 'promocoes' do Supabase
     const { data, error } = await supabaseClient
       .from('promocoes')
       .insert([{
@@ -129,13 +147,13 @@ const Api = {
         titulo: dados.titulo,
         descricao: dados.descricao,
         validade: dados.validade,
-        imagem_url: imagemFinalUrl // URL gerada pelo upload
+        imagem_url: imagemFinalUrl
       }])
       .select().single();
 
     if (error) throw error;
 
-    // 2. DISPARA O PUSH AUTOMATICAMENTE PARA OS CLIENTES DESTA LOJA
+    // 3. Dispara o push automaticamente para os clientes inscritos nesta loja
     await this.dispararPushParaLoja(dados.slug, dados.titulo, dados.descricao, dados.app_url);
 
     return data;

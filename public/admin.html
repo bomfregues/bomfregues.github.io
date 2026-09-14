@@ -60,7 +60,6 @@
     .input-control { width: 100%; padding: 12px 14px; background: #fafaf9; border: 1.5px solid var(--border); border-radius: 10px; font-size: 13px; color: var(--text); outline: none; transition: all 0.15s; }
     .input-control:focus { background: #ffffff; border-color: #1c1917; }
     .input-control:disabled { background: #f5f5f4; color: #78716c; cursor: not-allowed; }
-    .form-help-text { font-size: 11px; color: var(--muted); word-break: break-word; line-height: 1.4; margin-top: 2px; }
 
     .color-picker-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 4px; width: 100%; }
     .color-item { border: 1px solid var(--border); background: #fafaf9; border-radius: 12px; padding: 10px 4px; display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; }
@@ -389,13 +388,17 @@
 
     async function salvarIdentidade(e) {
       e.preventDefault();
-      // Lógica de salvamento mantida intacta conforme o seu app
       alert("Configurações salvas com sucesso!");
     }
 
+    // CORREÇÃO DOS HANDLERS DE UPLOAD DE FOTO
     async function processarFotoPromo(e) {
       const f = e.target.files[0];
-      if (f) promoB64 = await comprimirImagemParaBase64(f, 800);
+      if (f) {
+        promoB64 = await comprimirImagemParaBase64(f, 800);
+        document.getElementById('thumb-promo-box').innerHTML = `<img src="${promoB64}">`;
+        document.getElementById('promo-status-label').innerText = `${f.name} selecionada.`;
+      }
     }
 
     async function criarPromocao(e) {
@@ -420,6 +423,8 @@
         document.getElementById('promo-titulo').value = '';
         document.getElementById('promo-desc').value = '';
         document.getElementById('promo-validade').value = '';
+        document.getElementById('thumb-promo-box').innerHTML = `<span style="font-size:20px; color:#a8a29e;">Foto</span>`;
+        document.getElementById('promo-status-label').innerText = "Selecione uma foto atrativa.";
         promoB64 = null;
         await carregarPromocoes();
       } catch (err) {
@@ -458,9 +463,14 @@
       document.getElementById(`promo-${id}`)?.remove();
     }
 
+    // CORREÇÃO DOS HANDLERS DE UPLOAD DE PRÊMIO
     async function processarFotoPremio(e) {
       const f = e.target.files[0];
-      if (f) premioB64 = await comprimirImagemParaBase64(f, 600);
+      if (f) {
+        premioB64 = await comprimirImagemParaBase64(f, 600);
+        document.getElementById('thumb-premio-box').innerHTML = `<img src="${premioB64}">`;
+        document.getElementById('premio-status-label').innerText = `${f.name} selecionada.`;
+      }
     }
 
     async function criarPremio(e) {
@@ -475,6 +485,8 @@
       alert("Recompensa cadastrada!");
       document.getElementById('premio-titulo').value = '';
       document.getElementById('premio-pontos').value = '';
+      document.getElementById('thumb-premio-box').innerHTML = `<span style="font-size:20px; color:#a8a29e;">Foto</span>`;
+      document.getElementById('premio-status-label').innerText = "Foto para catálogo.";
       premioB64 = null;
       await carregarPremios();
     }
