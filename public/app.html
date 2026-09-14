@@ -10,7 +10,6 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="theme-color" content="#ffffff">
 
-  <!-- Link físico estático obrigatório para WebAPK real sem ícone de atalho -->
   <link rel="manifest" href="manifest.json">
   <link id="apple-touch-icon-tag" rel="apple-touch-icon" href="img/icon-192.png">
 
@@ -385,21 +384,17 @@
     const isIos = () => /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
     const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 
-    // Registra o Service Worker imediatamente para habilitar o WebAPK nativo do Chrome
+    // Registro imediato do Service Worker no escopo padrão
     if ('serviceWorker' in navigator) {
-      const baseUrlWorker = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
-      navigator.serviceWorker.register(baseUrlWorker + 'sw.js', { scope: baseUrlWorker }).catch(() => {});
+      navigator.serviceWorker.register('sw.js').catch(err => {
+        console.warn("Falha no registro do Service Worker:", err);
+      });
     }
 
-    // Captura o evento nativo de instalação do Chrome no Android
+    // Captura global do evento de instalação do Chrome
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
       deferredPrompt = e;
-      const btnInstall = document.getElementById('btn-install-action');
-      if (btnInstall) {
-        btnInstall.innerText = "Instalar aplicativo no celular";
-        btnInstall.disabled = false;
-      }
       atualizarCamadaInterface();
     });
 
@@ -437,7 +432,7 @@
       }
     }
 
-    // Disparo imediato do prompt nativo
+    // AÇÃO DE INSTALAÇÃO SÍNCRONA
     async function acionarInstalacao() {
       if (isIos()) {
         document.getElementById('iosOverlay').style.display = 'block';
@@ -453,26 +448,6 @@
           document.getElementById('btn-install-action').style.display = 'none';
           atualizarCamadaInterface();
         }
-      } else {
-        // Se tocado antes do Chrome registrar o evento, aciona o prompt assim que liberado
-        const btn = document.getElementById('btn-install-action');
-        btn.innerText = "Preparando instalação...";
-        btn.disabled = true;
-
-        let tries = 0;
-        const checkPrompt = setInterval(() => {
-          tries++;
-          if (deferredPrompt) {
-            clearInterval(checkPrompt);
-            btn.innerText = "Instalar aplicativo no celular";
-            btn.disabled = false;
-            deferredPrompt.prompt();
-          } else if (tries > 8) {
-            clearInterval(checkPrompt);
-            btn.innerText = "Instalar aplicativo no celular";
-            btn.disabled = false;
-          }
-        }, 200);
       }
     }
 
@@ -481,7 +456,7 @@
       setTimeout(() => document.getElementById('iosOverlay').style.display = 'none', 300);
     }
 
-    // Renderiza o ícone da marca com a cor do header no fundo para o iOS Safari
+    // Geração dinâmica do ícone para Apple Touch Icon com fundo da cor do cabeçalho
     function gerarIconeCustomizado(logoUrl, corFundo) {
       return new Promise((resolve) => {
         const canvas = document.createElement('canvas');
@@ -526,7 +501,7 @@
       });
     }
 
-    // Ativação e registro de Push Notifications
+    // Ativação de Notificações
     async function ativarPush() {
       const btn = document.getElementById('btn-push-action');
       if (btn) {
@@ -630,7 +605,6 @@
             img.style.display = 'block';
           }
 
-          // Renderiza o ícone com a cor do header para o iOS
           const iconeCustom = await gerarIconeCustomizado(loja.logo_url, loja.cor_primaria);
           const appleTag = document.getElementById('apple-touch-icon-tag');
           if (appleTag) appleTag.href = iconeCustom;
@@ -800,7 +774,6 @@
       }
     }
 
-    // Inicialização da interface e dados
     carregarDadosLoja();
     carregarOfertas();
     carregarPontos();
