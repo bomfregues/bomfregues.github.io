@@ -410,7 +410,6 @@
 
     function copiarLinkPwa() { navigator.clipboard.writeText(pwaClienteUrl).then(() => alert("Link copiado com sucesso!")); }
 
-    // FUNÇÃO COMPLETA DE CRIAÇÃO E ATUALIZAÇÃO RESTAURADA
     async function salvarIdentidade(e) {
       e.preventDefault();
       const btn = document.getElementById('btn-save-loja');
@@ -463,33 +462,12 @@
           alert("✅ Aplicativo criado e publicado com sucesso!");
           window.location.reload();
         } else {
-          // Modo Criação: Cadastra nova loja vinculada ao usuário
-          const slugReservado = sessionStorage.getItem('saas_pre_slug') || nome.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "-").replace(/-+/g, "-");
-
-          const { data: novo, error: insErr } = await supabaseClient.from('comercios').insert([{
-            nome_fantasia: nome,
-            slug: slugReservado,
-            cnpj,
-            cor_primaria: corHeader,
-            cor_secundaria: corSec,
-            cor_destaque: corDest,
-            logo_url: logoFinalUrl,
-            icone_pwa_url: logoFinalUrl,
-            user_id: userIdAtual
-          }]).select().single();
-
-          if (insErr) throw insErr;
-          lojaAtual = novo;
-          sessionStorage.removeItem('saas_pre_slug');
-          alert("✅ Aplicativo criado e publicado com sucesso!");
-          window.location.reload();
-        } else {
-          // Modo Atualização: Salva dados da loja existente
           const { data: atualizado, error: updErr } = await supabaseClient
             .from('comercios')
             .update({
               nome_fantasia: nome,
               cnpj,
+              senha_admin: 'auth_managed',
               cor_primaria: corHeader,
               cor_secundaria: corSec,
               cor_destaque: corDest,
