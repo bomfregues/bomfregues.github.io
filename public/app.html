@@ -5,9 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Bom Freguês</title>
 
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="theme-color" content="#ffffff">
+
+  <!-- Tags dinâmicas para PWA e ícones iOS / Android -->
+  <link id="dynamic-manifest" rel="manifest">
+  <link id="apple-touch-icon-tag" rel="apple-touch-icon" href="img/icon-192.png">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com">
@@ -381,7 +386,17 @@
     const isIos = () => /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
     const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 
-    // Captura o prompt nativo de instalação do Chrome/Android
+    // Registra imediatamente o Service Worker para liberar a elegibilidade do PWA no Android
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        const baseUrlWorker = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
+        navigator.serviceWorker.register(baseUrlWorker + 'sw.js', { scope: baseUrlWorker }).catch(err => {
+          console.warn("Aviso ao registrar SW:", err);
+        });
+      });
+    }
+
+    // Captura o evento nativo de instalação do Chrome/Android
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
       deferredPrompt = e;
@@ -422,7 +437,7 @@
       }
     }
 
-    // Instalação: Prompt direto no Android e Modal no iOS
+    // Instalação: Prompt automático no Android e Sheet no iOS
     async function acionarInstalacao() {
       if (isIos()) {
         document.getElementById('iosOverlay').style.display = 'block';
@@ -436,12 +451,8 @@
           atualizarCamadaInterface();
         }
       } else {
-        // Se o evento ainda estiver aguardando engajamento do navegador
-        if ('serviceWorker' in navigator) {
-          navigator.serviceWorker.ready.then(() => {
-            if (deferredPrompt) deferredPrompt.prompt();
-          });
-        }
+        // Caso o navegador móvel demore a emitir o evento nativo
+        alert("Para instalar:\nToque nos três pontinhos do navegador e selecione 'Adicionar à tela inicial'.");
       }
     }
 
@@ -450,7 +461,93 @@
       setTimeout(() => document.getElementById('iosOverlay').style.display = 'none', 300);
     }
 
-    // Notificações: Solicitação nativa e registro no Supabase
+    // Geração do Ícone Customizado para iOS e Android via Canvas
+    // Cria um ícone preenchendo o fundo com a cor do header e centralizando o logotipo
+    function gerarIconeCustomizado(logoUrl, corFundo) {
+      return new Promise((resolve) => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 192;
+        canvas.height = 192;
+        const ctx = canvas.getContext('2d');
+
+        // Preenche o fundo com a cor do header da loja
+        ctx.fillStyle = corFundo || '#1c1917';
+        ctx.fillRect(0, 0, 192, 192);
+
+        if (!logoUrl) {
+          resolve(canvas.toDataURL('image/png'));
+          return;
+        }
+
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => {
+          // Centraliza a logo com margem de segurança de 24px
+          const padding = 24;
+          const maxW = 192 - (padding * 2);
+          const maxH = 192 - (padding * 2);
+
+          let drawW = img.width;
+          let drawH = img.height;
+          const ratio = Math.min(maxW / drawW, maxH / drawH);
+
+          drawW = drawW * ratio;
+          drawH = drawH * ratio;
+
+          const posX = (192 - drawW) / 2;
+          const posY = (192 - drawH) / 2;
+
+          ctx.drawImage(img, posX, posY, drawW, drawH);
+          resolve(canvas.toDataURL('image/png'));
+        };
+
+        img.onerror = () => {
+          resolve(canvas.toDataURL('image/png'));
+        };
+
+        img.src = logoUrl;
+      });
+    }
+
+    // Configura o manifesto dinâmico (Android) e a tag apple-touch-icon (iOS)
+    async function configurarIdentidadePWA(nomeLoja, logoUrl, corFundo) {
+      const iconeBase64 = await gerarIconeCustomizado(logoUrl, corFundo);
+
+      // 1. Atualiza a tag do iOS
+      const appleIconTag = document.getElementById('apple-touch-icon-tag');
+      if (appleIconTag) {
+        appleIconTag.href = iconeBase64;
+      }
+
+      // 2. Cria o manifesto em formato Data URI para o Android reconhecer o app separado
+      const startUrl = `${window.location.origin}${window.location.pathname}?loja=${COMERCIO_SLUG}`;
+      const manifestObj = {
+        name: nomeLoja || "Bom Freguês",
+        short_name: nomeLoja || "Clube",
+        id: `bomfregues_${COMERCIO_SLUG}`,
+        start_url: startUrl,
+        scope: `${window.location.origin}${window.location.pathname}?loja=${COMERCIO_SLUG}`,
+        display: "standalone",
+        background_color: corFundo || "#ffffff",
+        theme_color: corFundo || "#1c1917",
+        icons: [
+          {
+            src: iconeBase64,
+            sizes: "192x192",
+            type: "image/png",
+            purpose: "any maskable"
+          }
+        ]
+      };
+
+      const manifestDataUri = "data:application/manifest+json;charset=utf-8," + encodeURIComponent(JSON.stringify(manifestObj));
+      const manifestTag = document.getElementById('dynamic-manifest');
+      if (manifestTag) {
+        manifestTag.href = manifestDataUri;
+      }
+    }
+
+    // Notificações: Solicitação nativa e gravação no Supabase
     async function ativarPush() {
       const btn = document.getElementById('btn-push-action');
       if (btn) {
@@ -555,6 +652,9 @@
             img.src = loja.logo_url;
             img.style.display = 'block';
           }
+
+          // Injeta a logo e o fundo da cor do header no PWA
+          await configurarIdentidadePWA(loja.nome_fantasia, loja.logo_url, loja.cor_primaria);
         } else {
           document.getElementById('header-loja-nome').innerText = COMERCIO_SLUG;
         }
