@@ -1,6 +1,6 @@
 const PROJECT_REF = "uskfiencjaqqlhglpuqt";
 const SUPABASE_URL = `https://${PROJECT_REF}.supabase.co`;
-const SUPABASE_ANON_KEY = "sb_publishable_31CDkXjDETBd12KK8yhW3w_hmyQZBqO"; // Cole sua chave anon real aqui
+const SUPABASE_ANON_KEY = "sb_publishable_31CDkXjDETBd12KK8yhW3w_hmyQZBqO";
 const BASE_FUNCTIONS_URL = `${SUPABASE_URL}/functions/v1`;
 
 let supabaseClient = null;
@@ -9,7 +9,6 @@ if (typeof supabase !== 'undefined') {
 }
 
 const Api = {
-  // Auth
   async cadastrarUsuario(email, password) {
     if (!supabaseClient) throw new Error("SDK de autenticação indisponível.");
     const { data, error } = await supabaseClient.auth.signUp({ email, password });
@@ -44,7 +43,6 @@ const Api = {
     await supabaseClient.auth.signOut();
   },
 
-  // Validação de slug disponível
   async verificarDisponibilidadeSlug(slug) {
     if (!slug) return false;
     const slugNormalizado = slug.toLowerCase().trim();
@@ -59,12 +57,11 @@ const Api = {
         console.warn("Erro ao consultar slug:", error.message);
         return true;
       }
-      return !data; // Retorna true se não existe ninguém usando
+      return !data;
     }
     return true;
   },
 
-  // Tenant
   async getTenant(slug) {
     const res = await fetch(`${BASE_FUNCTIONS_URL}/tenant-manager?slug=${slug}&t=${Date.now()}`);
     const data = await res.json();
@@ -112,7 +109,6 @@ const Api = {
     return data;
   },
 
-  // Promoções
   async listarPromocoes(slug) {
     const res = await fetch(`${BASE_FUNCTIONS_URL}/promocoes?slug=${slug}&t=${Date.now()}`);
     const data = await res.json();
@@ -123,7 +119,6 @@ const Api = {
   async criarPromocao(dados) {
     let imagemFinalUrl = "";
 
-    // 1. Faz o upload da imagem se houver
     if (dados.imagem_base64 && dados.imagem_base64.startsWith('data:image')) {
       const base64Data = dados.imagem_base64.replace(/^data:image\/\w+;base64,/, '');
       const bytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
@@ -139,16 +134,14 @@ const Api = {
       }
     }
 
-    // 2. Busca o ID UUID do comércio ativo para satisfazer a restrição da tabela
     const { data: comercioData } = await supabaseClient
       .from('comercios')
       .select('id')
       .eq('slug', dados.slug)
       .single();
 
-    if (!comercioData) throw new Error("Estabelecimento não encontrado para vincular a promoção.");
+    if (!comercioData) throw new Error("Estabelecimento não encontrado.");
 
-    // 3. Insere a promoção preenchendo tanto o ID quanto o Slug
     const { data, error } = await supabaseClient
       .from('promocoes')
       .insert([{
@@ -163,7 +156,6 @@ const Api = {
 
     if (error) throw error;
 
-    // 4. Dispara o push automaticamente para os clientes inscritos nesta loja
     await this.dispararPushParaLoja(dados.slug, dados.titulo, dados.descricao, dados.app_url);
 
     return data;
@@ -180,7 +172,6 @@ const Api = {
     return data;
   },
 
-  // Fidelidade
   async obterPontos(slug, deviceId) {
     const res = await fetch(`${BASE_FUNCTIONS_URL}/fidelidade?acao=pontos&slug=${slug}&device_id=${deviceId}&t=${Date.now()}`);
     const data = await res.json();
@@ -266,38 +257,22 @@ const Api = {
     }
   },
 
-  // Função de disparo automático de push ao criar promoção
   async dispararPushParaLoja(slugLoja, tituloPromo, descricaoPromo, appUrl) {
     try {
-      const ONESIGNAL_APP_ID = "3848f19b-f5ef-45a5-a307-ad0a89725eb1";
-      // IMPORTANTE: Insira sua chave REST do OneSignal (Settings > Keys & IDs > REST API Key)
-      const ONESIGNAL_REST_API_KEY = "os_v2_app_xxxxxxxxxxxxxxxxxxxxxxxx"; 
-
-      const payload = {
-        app_id: ONESIGNAL_APP_ID,
-        // Filtra os celulares que possuem a tag daquela loja
-        filters: [
-          { field: "tag", key: "comercio_slug", relation: "=", value: slugLoja }
-        ],
-        headings: { "pt": tituloPromo, "en": tituloPromo },
-        contents: { "pt": descricaoPromo, "en": descricaoPromo },
-        url: appUrl || `https://bomfregues.github.io/public/app.html?loja=${slugLoja}`
-      };
-
-      const resposta = await fetch("https://onesignal.com/api/v1/notifications", {
+      const res = await fetch(`${BASE_FUNCTIONS_URL}/disparar-push`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json; charset=utf-8",
-          "Authorization": `Basic ${ONESIGNAL_REST_API_KEY}`
-        },
-        body: JSON.stringify(payload)
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slug: slugLoja,
+          titulo: tituloPromo,
+          descricao: descricaoPromo,
+          app_url: appUrl
+        })
       });
-
-      const resultado = await resposta.json();
-      console.log("Resultado do envio OneSignal:", resultado);
-      return resultado;
+      const data = await res.json();
+      console.log("Notificação nativa disparada com sucesso:", data);
     } catch (e) {
-      console.warn("Falha ao disparar push no OneSignal:", e);
+      console.warn("Erro ao disparar push:", e);
     }
-  },
+  }
 };

@@ -220,12 +220,24 @@
     }
   </style>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/api.js"></script>
   <script src="js/theme.js"></script>
 
   <script>
-    // CREDENCIAIS DO ONESIGNAL DIRETAS (API REST / CLIENT)
-    const ONESIGNAL_APP_ID = "3848f19b-f5ef-45a5-a307-ad0a89725eb1";
+    // Cole aqui sua chave pública VAPID gerada no Passo 1
+    const VAPID_PUBLIC_KEY = "BPgTOsh2Se0Lz_gyRBjcHGt3JL7qsnpvGP7Cun-AGvCO5wc6KoVl22Cw_ly6gFjVjvpXuCFgxJkYGnDhKkug7E0";
+
+    function urlBase64ToUint8Array(base64String) {
+      const padding = '='.repeat((4 - base64String.length % 4) % 4);
+      const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+      const rawData = window.atob(base64);
+      const outputArray = new Uint8Array(rawData.length);
+      for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+      }
+      return outputArray;
+    }
 
     let deferredPrompt = null;
     const isIos = () => /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
@@ -239,7 +251,20 @@
 
     window.addEventListener('DOMContentLoaded', () => {
       atualizarCamadaInterface();
+      verificarStatusPermissao();
     });
+
+    async function verificarStatusPermissao() {
+      if ("Notification" in window && Notification.permission === "granted" && "serviceWorker" in navigator) {
+        const reg = await navigator.serviceWorker.getRegistration();
+        if (reg) {
+          const sub = await reg.pushManager.getSubscription();
+          if (sub) {
+            document.getElementById('btn-push-action').style.display = 'none';
+          }
+        }
+      }
+    }
 
     function atualizarCamadaInterface() {
       const btnInstall = document.getElementById('btn-install-action');
@@ -253,12 +278,6 @@
         btnInstall.style.display = 'flex';
       } else {
         btnInstall.style.display = 'none';
-      }
-
-      if ("Notification" in window && Notification.permission === "granted") {
-        btnPush.style.display = 'none';
-      } else {
-        btnPush.style.display = 'flex';
       }
 
       const algumCardFlutuante = (btnInstall.style.display === 'flex') || 
@@ -285,7 +304,7 @@
           atualizarCamadaInterface();
         }
       } else {
-        alert("Para instalar este aplicativo, toque nas opções do seu navegador e selecione 'Adicionar à tela inicial'.");
+        alert("Para instalar este aplicativo, toque no menu do navegador e selecione 'Adicionar à tela inicial'.");
       }
     }
 
@@ -294,7 +313,6 @@
       setTimeout(() => document.getElementById('iosOverlay').style.display = 'none', 300);
     }
 
-    // REGISTRO DIRETO VIA WEB PUSH API E API DO ONESIGNAL
     async function ativarPush() {
       const btn = document.getElementById('btn-push-action');
       if (btn) {
@@ -303,12 +321,12 @@
       }
 
       try {
-        if (!("Notification" in window)) {
-          throw new Error("Seu navegador não suporta notificações web.");
+        if (!("Notification" in window) || !("serviceWorker" in navigator)) {
+          throw new Error("Seu navegador não suporta notificações web nativas.");
         }
 
         if (Notification.permission === "denied") {
-          throw new Error("As notificações estão bloqueadas nas configurações do navegador.");
+          throw new Error("As notificações estão bloqueadas nas configurações do seu celular para este site.");
         }
 
         const perm = await Notification.requestPermission();
@@ -316,66 +334,25 @@
           throw new Error("Permissão de notificação negada pelo usuário.");
         }
 
-        if (!('serviceWorker' in navigator)) {
-          throw new Error("Service Worker não suportado neste navegador.");
-        }
-
         const baseUrlWorker = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
-        const reg = await navigator.serviceWorker.register(baseUrlWorker + 'OneSignalSDKWorker.js', { scope: baseUrlWorker });
+        const reg = await navigator.serviceWorker.register(baseUrlWorker + 'sw.js', { scope: baseUrlWorker });
         await navigator.serviceWorker.ready;
 
-        // 1. Obtém a subscrição nativa do navegador
-        let subscription = await reg.pushManager.getSubscription();
-        if (!subscription) {
-          // Busca a chave pública VAPID se necessário ou assina
-          subscription = await reg.pushManager.subscribe({
+        let sub = await reg.pushManager.getSubscription();
+        if (!sub) {
+          sub = await reg.pushManager.subscribe({
             userVisibleOnly: true,
-            applicationServerKey: "BBPv8x3fXjWv4M9sC8Z1xX..." // Chave gerenciada pelo SW
-          }).catch(async () => {
-            return await reg.pushManager.getSubscription();
+            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
           });
         }
 
-        const subJson = subscription ? subscription.toJSON() : null;
         const slugAtual = typeof COMERCIO_SLUG !== 'undefined' ? COMERCIO_SLUG : "geral";
+        await Api.salvarInscricaoPush(slugAtual, MEU_DEVICE_ID, sub.toJSON());
 
-        // 2. Registra o Player diretamente no OneSignal via API REST pública de Players
-        const playerPayload = {
-          app_id: "3848f19b-f5ef-45a5-a307-ad0a89725eb1",
-          device_type: 5, // Chrome Web Push / Android
-          language: "pt",
-          timezone: -10800,
-          tags: { comercio_slug: slugAtual }
-        };
-
-        if (subJson && subJson.endpoint) {
-          playerPayload.identifier = subJson.endpoint;
-          if (subJson.keys) {
-            playerPayload.web_auth = subJson.keys.auth;
-            playerPayload.web_p256 = subJson.keys.p256dh;
-          }
-        }
-
-        const res = await fetch("https://onesignal.com/api/v1/players", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(playerPayload)
-        });
-
-        const playerResult = await res.json();
-        console.log("Registro de Player no OneSignal:", playerResult);
-
-        // 3. Salva no Supabase para vínculo local
-        if (playerResult.id && typeof Api !== 'undefined' && Api.salvarInscricaoPush) {
-          await Api.salvarInscricaoPush(slugAtual, MEU_DEVICE_ID, playerResult.id);
-        }
-
-        alert("✅ Dispositivo cadastrado e pronto para receber notificações!");
-        atualizarCamadaInterface();
+        alert("✅ Notificações ativadas com sucesso!");
+        btn.style.display = 'none';
       } catch (err) {
-        console.warn("Aviso ao ativar push:", err);
-        alert("Aviso: " + (err.message || "Permissão aceita localmente."));
-        atualizarCamadaInterface();
+        alert("Aviso: " + err.message);
       } finally {
         if (btn) {
           btn.innerText = "Receber avisos de promoções";
