@@ -1,3 +1,11 @@
+self.addEventListener('install', (event) => {
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(clients.claim());
+});
+
 self.addEventListener('push', function(event) {
   let data = {};
   if (event.data) {
@@ -10,7 +18,7 @@ self.addEventListener('push', function(event) {
 
   const title = data.title || 'Novidade na Loja!';
   const options = {
-    body: data.body || 'Confira as novas promoções disponíveis no clube de vantagens.',
+    body: data.body || 'Confira as novas ofertas disponíveis no app.',
     icon: data.icon || 'img/icon-192.png',
     badge: 'img/icon-192.png',
     vibrate: [100, 50, 100],

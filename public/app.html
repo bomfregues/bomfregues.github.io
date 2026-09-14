@@ -8,11 +8,9 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="Bom Freguês">
   <meta name="theme-color" content="#ffffff">
 
-  <!-- Manifesto físico obrigatório para WebAPK real no Android -->
-  <link rel="manifest" href="manifest.json">
+  <link id="dynamic-manifest" rel="manifest">
   <link id="apple-touch-icon-tag" rel="apple-touch-icon" href="img/icon-192.png">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -372,9 +370,6 @@
     const urlParams = new URLSearchParams(window.location.search);
     const COMERCIO_SLUG = urlParams.get('loja') || "singello";
 
-    // Chave Pública VAPID
-    const VAPID_PUBLIC_KEY = "BNxSuaChavePublicaAquiSeHouver";
-
     let MEU_DEVICE_ID = localStorage.getItem('bomfregues_device_id');
     if (!MEU_DEVICE_ID) {
       MEU_DEVICE_ID = 'dev_' + Math.random().toString(36).substring(2, 11) + Date.now().toString(36);
@@ -389,18 +384,21 @@
     const isIos = () => /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
     const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 
-    // Registra o Service Worker imediatamente para habilitar WebAPK
+    // Registra Service Worker de imediato
     if ('serviceWorker' in navigator) {
       const baseUrlWorker = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
-      navigator.serviceWorker.register(baseUrlWorker + 'sw.js', { scope: baseUrlWorker }).catch(err => {
-        console.warn("SW register:", err);
-      });
+      navigator.serviceWorker.register(baseUrlWorker + 'sw.js', { scope: baseUrlWorker }).catch(() => {});
     }
 
-    // Captura o evento nativo de instalação do Chrome no Android
+    // Captura o evento nativo do Android
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
       deferredPrompt = e;
+      const btnInstall = document.getElementById('btn-install-action');
+      if (btnInstall) {
+        btnInstall.innerText = "Instalar aplicativo no celular";
+        btnInstall.disabled = false;
+      }
       atualizarCamadaInterface();
     });
 
@@ -438,12 +436,15 @@
       }
     }
 
-    // 1. INSTALAÇÃO PWA REAL
+    // DISPARO DIRETO DE INSTALAÇÃO (SEM ALERTAS DE INSTRUÇÃO NO ANDROID)
     async function acionarInstalacao() {
       if (isIos()) {
         document.getElementById('iosOverlay').style.display = 'block';
         setTimeout(() => document.getElementById('iosSheet').classList.add('active'), 10);
-      } else if (deferredPrompt) {
+        return;
+      }
+
+      if (deferredPrompt) {
         deferredPrompt.prompt();
         const { outcome } = await deferredPrompt.userChoice;
         if (outcome === 'accepted') {
@@ -452,7 +453,25 @@
           atualizarCamadaInterface();
         }
       } else {
-        alert("Para instalar:\nToque no menu do Chrome (3 pontinhos) e selecione 'Instalar aplicativo'.");
+        const btn = document.getElementById('btn-install-action');
+        btn.innerText = "Preparando instalação...";
+        btn.disabled = true;
+
+        // Aguarda 1.5s pelo evento do Chrome se ainda não tiver disparado
+        let checks = 0;
+        const interval = setInterval(() => {
+          checks++;
+          if (deferredPrompt) {
+            clearInterval(interval);
+            btn.innerText = "Instalar aplicativo no celular";
+            btn.disabled = false;
+            deferredPrompt.prompt();
+          } else if (checks > 8) {
+            clearInterval(interval);
+            btn.innerText = "Instalar aplicativo no celular";
+            btn.disabled = false;
+          }
+        }, 200);
       }
     }
 
@@ -461,18 +480,88 @@
       setTimeout(() => document.getElementById('iosOverlay').style.display = 'none', 300);
     }
 
-    function urlBase64ToUint8Array(base64String) {
-      const padding = '='.repeat((4 - base64String.length % 4) % 4);
-      const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
-      const rawData = window.atob(base64);
-      const outputArray = new Uint8Array(rawData.length);
-      for (let i = 0; i < rawData.length; ++i) {
-        outputArray[i] = rawData.charCodeAt(i);
-      }
-      return outputArray;
+    // GERA O ÍCONE DA LOJA COM COR DO HEADER PARA FICAR BONITO NO ANDROID E NO IOS
+    function gerarIconeCustomizado(logoUrl, corFundo) {
+      return new Promise((resolve) => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 512;
+        const ctx = canvas.getContext('2d');
+
+        // Preenche o fundo integralmente com a cor primária da loja
+        ctx.fillStyle = corFundo || '#1c1917';
+        ctx.fillRect(0, 0, 512, 512);
+
+        if (!logoUrl) {
+          resolve(canvas.toDataURL('image/png'));
+          return;
+        }
+
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => {
+          // Margem segura para formato maskable
+          const padding = 70;
+          const maxW = 512 - (padding * 2);
+          const maxH = 512 - (padding * 2);
+
+          let drawW = img.width;
+          let drawH = img.height;
+          const ratio = Math.min(maxW / drawW, maxH / drawH);
+
+          drawW = drawW * ratio;
+          drawH = drawH * ratio;
+
+          const posX = (512 - drawW) / 2;
+          const posY = (512 - drawH) / 2;
+
+          ctx.drawImage(img, posX, posY, drawW, drawH);
+          resolve(canvas.toDataURL('image/png'));
+        };
+
+        img.onerror = () => {
+          resolve(canvas.toDataURL('image/png'));
+        };
+
+        img.src = logoUrl;
+      });
     }
 
-    // 2. ATIVAÇÃO DE NOTIFICAÇÕES (IOS & ANDROID)
+    function aplicarManifestoCustomizado(nomeLoja, iconeBase64, corFundo) {
+      // Atualiza Apple Touch Icon para iOS
+      const appleTag = document.getElementById('apple-touch-icon-tag');
+      if (appleTag) appleTag.href = iconeBase64;
+
+      // Monta manifesto com escopo e ícone maskable completo para Android gerar WebAPK real
+      const startUrl = `${window.location.origin}${window.location.pathname}?loja=${COMERCIO_SLUG}`;
+      const manifestJSON = {
+        name: nomeLoja || "Bom Freguês",
+        short_name: nomeLoja || "Clube",
+        id: `bf_${COMERCIO_SLUG}`,
+        start_url: startUrl,
+        scope: `${window.location.origin}${window.location.pathname}?loja=${COMERCIO_SLUG}`,
+        display: "standalone",
+        background_color: corFundo || "#ffffff",
+        theme_color: corFundo || "#1c1917",
+        icons: [
+          {
+            src: iconeBase64,
+            sizes: "192x192 512x512",
+            type: "image/png",
+            purpose: "any maskable"
+          }
+        ]
+      };
+
+      const blob = new Blob([JSON.stringify(manifestJSON)], { type: 'application/manifest+json' });
+      const manifestUrl = URL.createObjectURL(blob);
+      const manifestLink = document.getElementById('dynamic-manifest');
+      if (manifestLink) {
+        manifestLink.href = manifestUrl;
+      }
+    }
+
+    // ATIVAÇÃO DE NOTIFICAÇÕES
     async function ativarPush() {
       const btn = document.getElementById('btn-push-action');
       if (btn) {
@@ -482,11 +571,11 @@
 
       try {
         if (!("Notification" in window)) {
-          throw new Error("Seu navegador não suporta notificações.");
+          throw new Error("Seu dispositivo não suporta notificações web.");
         }
 
         if (isIos() && !isStandalone()) {
-          throw new Error("No iPhone, você precisa primeiro 'Adicionar à Tela de Início' para ativar as notificações.");
+          throw new Error("No iPhone, você deve primeiro adicionar o app à Tela de Início para ativar avisos.");
         }
 
         const perm = await Notification.requestPermission();
@@ -496,18 +585,7 @@
 
         if ('serviceWorker' in navigator) {
           const reg = await navigator.serviceWorker.ready;
-          let sub = await reg.pushManager.getSubscription();
-
-          if (!sub && VAPID_PUBLIC_KEY && VAPID_PUBLIC_KEY.length > 20) {
-            try {
-              sub = await reg.pushManager.subscribe({
-                userVisibleOnly: true,
-                applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-              });
-            } catch (errSub) {
-              console.warn("Falha na subscrição VAPID:", errSub);
-            }
-          }
+          const sub = await reg.pushManager.getSubscription();
 
           if (sub && typeof Api !== 'undefined' && Api.salvarInscricaoPush) {
             await Api.salvarInscricaoPush(COMERCIO_SLUG, MEU_DEVICE_ID, sub.toJSON());
@@ -525,51 +603,6 @@
         }
         atualizarCamadaInterface();
       }
-    }
-
-    // 3. GERAÇÃO DE ÍCONE CUSTOMIZADO COM COR DO HEADER PARA IOS
-    function gerarIconeCustomizado(logoUrl, corFundo) {
-      return new Promise((resolve) => {
-        const canvas = document.createElement('canvas');
-        canvas.width = 192;
-        canvas.height = 192;
-        const ctx = canvas.getContext('2d');
-
-        ctx.fillStyle = corFundo || '#1c1917';
-        ctx.fillRect(0, 0, 192, 192);
-
-        if (!logoUrl) {
-          resolve(canvas.toDataURL('image/png'));
-          return;
-        }
-
-        const img = new Image();
-        img.crossOrigin = "anonymous";
-        img.onload = () => {
-          const padding = 20;
-          const maxW = 192 - (padding * 2);
-          const maxH = 192 - (padding * 2);
-
-          let drawW = img.width;
-          let drawH = img.height;
-          const ratio = Math.min(maxW / drawW, maxH / drawH);
-
-          drawW = drawW * ratio;
-          drawH = drawH * ratio;
-
-          const posX = (192 - drawW) / 2;
-          const posY = (192 - drawH) / 2;
-
-          ctx.drawImage(img, posX, posY, drawW, drawH);
-          resolve(canvas.toDataURL('image/png'));
-        };
-
-        img.onerror = () => {
-          resolve(canvas.toDataURL('image/png'));
-        };
-
-        img.src = logoUrl;
-      });
     }
 
     function calcularCorTextoContraste(hexColor) {
@@ -632,10 +665,9 @@
             img.style.display = 'block';
           }
 
-          // Atualiza o ícone do iOS com o logo centralizado e a cor do cabeçalho
-          const iconeIos = await gerarIconeCustomizado(loja.logo_url, loja.cor_primaria);
-          const appleTag = document.getElementById('apple-touch-icon-tag');
-          if (appleTag) appleTag.href = iconeIos;
+          // Gera o ícone com a cor do header e logo centralizada
+          const iconeCustom = await gerarIconeCustomizado(loja.logo_url, loja.cor_primaria);
+          aplicarManifestoCustomizado(loja.nome_fantasia, iconeCustom, loja.cor_primaria);
         } else {
           document.getElementById('header-loja-nome').innerText = COMERCIO_SLUG;
         }
