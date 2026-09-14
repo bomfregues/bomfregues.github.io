@@ -338,6 +338,7 @@
 
   <script src="js/api.js"></script>
   <script src="js/theme.js"></script>
+  <!-- SDK Oficial do OneSignal carregado via CDN assíncrona -->
   <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
 
   <script>
@@ -346,8 +347,9 @@
       try {
         await OneSignal.init({
           appId: "3848f19b-f5ef-45a5-a307-ad0a89725eb1",
+          // Força o service worker a apontar para a raiz do GitHub Pages onde o OneSignal espera
+          serviceWorkerPath: "../OneSignalSDKWorker.js",
           serviceWorkerParam: { scope: "/" },
-          serviceWorkerPath: "OneSignalSDKWorker.js",
           welcomeNotification: { disable: true },
           notifyButton: { enable: false },
           allowLocalhostAsSecureOrigin: true
@@ -360,7 +362,7 @@
         atualizarCamadaInterface();
         OneSignal.User.PushSubscription.addEventListener("change", atualizarCamadaInterface);
       } catch (e) {
-        console.warn("OneSignal init:", e);
+        console.warn("OneSignal init erro:", e);
       }
     });
 
@@ -382,29 +384,21 @@
 
       const standalone = isStandalone();
 
-      // Botão de Instalação: Exibido em qualquer navegador fora de standalone
       if (!standalone) {
         btnInstall.style.display = 'flex';
       } else {
         btnInstall.style.display = 'none';
       }
 
-      // Botão de Notificação: Exibido se ainda não concedida
-      let pushHabilitado = false;
-      if ("Notification" in window && Notification.permission === "granted") {
-        pushHabilitado = true;
-      }
-      if (window.OneSignal?.User?.PushSubscription?.optedIn) {
-        pushHabilitado = true;
-      }
+      const sub = window.OneSignal?.User?.PushSubscription;
+      const inscritoNoOneSignal = sub?.id && sub?.optedIn;
 
-      if (!pushHabilitado) {
+      if (!inscritoNoOneSignal) {
         btnPush.style.display = 'flex';
       } else {
         btnPush.style.display = 'none';
       }
 
-      // Controle do espaçador dinâmico: garante distância constante do header
       const algumCardFlutuante = (btnInstall.style.display === 'flex') || 
                                  (btnPush.style.display === 'flex') || 
                                  (alertaCpf.style.display === 'flex');
@@ -429,7 +423,7 @@
           atualizarCamadaInterface();
         }
       } else {
-        alert("Para instalar este app, toque nos três pontos do navegador e selecione 'Adicionar à tela inicial' ou 'Instalar aplicativo'.");
+        alert("Para instalar este aplicativo, toque nas opções do seu navegador e selecione 'Adicionar à tela inicial'.");
       }
     }
 
@@ -441,47 +435,35 @@
     async function ativarPush() {
       const btn = document.getElementById('btn-push-action');
       if (btn) {
-        btn.innerText = "Solicitando...";
+        btn.innerText = "Registrando no OneSignal...";
         btn.disabled = true;
       }
 
       try {
-        if (!("Notification" in window)) {
-          throw new Error("Seu navegador não suporta notificações web.");
-        }
-
-        if (Notification.permission === "denied") {
-          throw new Error("As notificações estão bloqueadas nas configurações do navegador para este site.");
-        }
-
-        const perm = await Notification.requestPermission();
-        if (perm !== "granted") {
-          throw new Error("Permissão não concedida pelo usuário.");
-        }
-
         window.OneSignalDeferred.push(async function(OneSignal) {
           try {
             await OneSignal.Notifications.requestPermission();
             if (typeof COMERCIO_SLUG !== 'undefined') {
               await OneSignal.User.addTag("comercio_slug", COMERCIO_SLUG);
             }
-            if (OneSignal.User.PushSubscription) {
-              await OneSignal.User.PushSubscription.optIn();
+            await OneSignal.User.PushSubscription.optIn();
+            alert("✅ Notificações ativadas e registradas com sucesso!");
+          } catch (err) {
+            alert("Erro ao registrar no OneSignal: " + err.message);
+          } finally {
+            if (btn) {
+              btn.innerText = "Receber avisos de promoções";
+              btn.disabled = false;
             }
-          } catch (e) {
-            console.warn("OneSignal optIn:", e);
+            atualizarCamadaInterface();
           }
         });
-
-        alert("✅ Notificações ativadas com sucesso!");
       } catch (err) {
-        alert(err.message || "Não foi possível ativar as notificações.");
-      } finally {
+        alert("Erro: " + err.message);
         if (btn) {
           btn.innerText = "Receber avisos de promoções";
           btn.disabled = false;
         }
-        atualizarCamadaInterface();
       }
     }
   </script>
@@ -521,7 +503,7 @@
       </div>
     </div>
 
-    <!-- Espaçador Blindado contra colapsos de margem do CSS -->
+    <!-- Espaçador Blindado contra colapsos de margem -->
     <div class="section-spacer-top" id="section-spacer"></div>
 
     <!-- ABA 1: Ofertas -->
@@ -664,7 +646,7 @@
             </div>
           </div>
         `).join('');
-      } catch (e) { box.innerHTML = `<p style="color:#ef4444; font-size:12px;">${e.message}</p>`; }
+      } catch (e) { box.innerHTML = `<p style="color:#ef4444; font-size:12px;">${err.message}</p>`; }
     }
 
     async function resgatarItem(id, titulo) {
