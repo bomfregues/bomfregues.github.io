@@ -120,14 +120,24 @@ const Api = {
     return data;
   },
 
-  async criarPromocao(payload) {
-    const res = await fetch(`${BASE_FUNCTIONS_URL}/promocoes`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Erro ao criar promoção.");
+  async criarPromocao(dados) {
+    // 1. Seu código existente que insere a promoção na tabela 'promocoes' do Supabase...
+    const { data, error } = await supabaseClient
+      .from('promocoes')
+      .insert([{
+        comercio_slug: dados.slug,
+        titulo: dados.titulo,
+        descricao: dados.descricao,
+        validade: dados.validade,
+        imagem_url: imagemFinalUrl // URL gerada pelo upload
+      }])
+      .select().single();
+
+    if (error) throw error;
+
+    // 2. DISPARA O PUSH AUTOMATICAMENTE PARA OS CLIENTES DESTA LOJA
+    await this.dispararPushParaLoja(dados.slug, dados.titulo, dados.descricao, dados.app_url);
+
     return data;
   },
 
@@ -210,5 +220,68 @@ const Api = {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Erro ao vincular CPF.");
     return data;
+  },
+
+  async salvarInscricaoPush(comercioSlug, deviceId, subscriptionObj) {
+    try {
+      const { error } = await supabaseClient
+        .from('push_subscriptions')
+        .upsert({
+          comercio_slug: comercioSlug,
+          device_id: deviceId,
+          subscription: subscriptionObj
+        }, { onConflict: 'comercio_slug,device_id' });
+
+      if (error) console.warn("Erro ao salvar push no Supabase:", error.message);
+    } catch (e) {
+      console.warn("Exceção ao salvar push:", e);
+    }
+  },
+
+  // Função de disparo automático de push ao criar promoção
+  async dispararPushParaLoja(slugLoja, tituloPromo, descricaoPromo, appUrl) {
+    try {
+      // 1. Busca todos os aparelhos inscritos nesta loja específica no Supabase
+      const { data: inscricoes, error } = await supabaseClient
+        .from('push_subscriptions')
+        .select('subscription')
+        .eq('comercio_slug', slugLoja);
+
+      if (error || !inscricoes || inscricoes.length === 0) {
+        console.log("Nenhum aparelho inscrito para receber push nesta loja.");
+        return;
+      }
+
+      // Extrai apenas os endpoints/tokens salvos
+      const endpoints = inscricoes.map(i => i.subscription);
+
+      // 2. Dispara a requisição oficial para a API REST do OneSignal
+      // Substitua SEU_ONESIGNAL_APP_ID e SUA_REST_API_KEY pelas chaves reais do seu painel OneSignal
+      const ONESIGNAL_APP_ID = "3848f19b-f5ef-45a5-a307-ad0a89725eb1";
+      const ONESIGNAL_REST_API_KEY = "SUA_REST_API_KEY_AQUI"; // Pegue em OneSignal > Settings > Keys & IDs
+
+      const resposta = await fetch("https://onesignal.com/api/v1/notifications", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+          "Authorization": `Basic ${ONESIGNAL_REST_API_KEY}`
+        },
+        body: JSON.stringify({
+          app_id: ONESIGNAL_APP_ID,
+          included_segments: ["All"], // Ou direcionado via tags/subscriptions
+          filters: [
+            { field: "tag", key: "comercio_slug", relation: "=", value: slugLoja }
+          ],
+          headings: { "en": tituloPromo, "pt": tituloPromo },
+          contents: { "en": descricaoPromo, "pt": descricaoPromo },
+          url: appUrl
+        })
+      });
+
+      const resultado = await resposta.json();
+      console.log("Disparo de Push OneSignal realizado:", resultado);
+    } catch (e) {
+      console.warn("Falha ao disparar push no OneSignal:", e);
+    }
   }
 };
