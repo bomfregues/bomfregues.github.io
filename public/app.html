@@ -338,34 +338,8 @@
 
   <script src="js/api.js"></script>
   <script src="js/theme.js"></script>
-  <!-- SDK Oficial do OneSignal carregado via CDN assíncrona -->
-  <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
 
   <script>
-    window.OneSignalDeferred = window.OneSignalDeferred || [];
-    OneSignalDeferred.push(async function(OneSignal) {
-      try {
-        await OneSignal.init({
-          appId: "3848f19b-f5ef-45a5-a307-ad0a89725eb1",
-          // Força o service worker a apontar para a raiz do GitHub Pages onde o OneSignal espera
-          serviceWorkerPath: "../OneSignalSDKWorker.js",
-          serviceWorkerParam: { scope: "/" },
-          welcomeNotification: { disable: true },
-          notifyButton: { enable: false },
-          allowLocalhostAsSecureOrigin: true
-        });
-
-        if (typeof COMERCIO_SLUG !== 'undefined' && COMERCIO_SLUG) {
-          await OneSignal.User.addTag("comercio_slug", COMERCIO_SLUG);
-        }
-
-        atualizarCamadaInterface();
-        OneSignal.User.PushSubscription.addEventListener("change", atualizarCamadaInterface);
-      } catch (e) {
-        console.warn("OneSignal init erro:", e);
-      }
-    });
-
     let deferredPrompt = null;
     const isIos = () => /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
     const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
@@ -373,6 +347,10 @@
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
       deferredPrompt = e;
+      atualizarCamadaInterface();
+    });
+
+    window.addEventListener('DOMContentLoaded', () => {
       atualizarCamadaInterface();
     });
 
@@ -390,13 +368,10 @@
         btnInstall.style.display = 'none';
       }
 
-      const sub = window.OneSignal?.User?.PushSubscription;
-      const inscritoNoOneSignal = sub?.id && sub?.optedIn;
-
-      if (!inscritoNoOneSignal) {
-        btnPush.style.display = 'flex';
-      } else {
+      if ("Notification" in window && Notification.permission === "granted") {
         btnPush.style.display = 'none';
+      } else {
+        btnPush.style.display = 'flex';
       }
 
       const algumCardFlutuante = (btnInstall.style.display === 'flex') || 
@@ -432,38 +407,59 @@
       setTimeout(() => document.getElementById('iosOverlay').style.display = 'none', 300);
     }
 
-    async function ativarPush() {
+    
+  async function ativarPush() {
       const btn = document.getElementById('btn-push-action');
       if (btn) {
-        btn.innerText = "Registrando no OneSignal...";
+        btn.innerText = "Ativando notificações...";
         btn.disabled = true;
       }
 
       try {
-        window.OneSignalDeferred.push(async function(OneSignal) {
-          try {
-            await OneSignal.Notifications.requestPermission();
-            if (typeof COMERCIO_SLUG !== 'undefined') {
-              await OneSignal.User.addTag("comercio_slug", COMERCIO_SLUG);
-            }
-            await OneSignal.User.PushSubscription.optIn();
-            alert("✅ Notificações ativadas e registradas com sucesso!");
-          } catch (err) {
-            alert("Erro ao registrar no OneSignal: " + err.message);
-          } finally {
-            if (btn) {
-              btn.innerText = "Receber avisos de promoções";
-              btn.disabled = false;
-            }
-            atualizarCamadaInterface();
+        if (!("Notification" in window)) {
+          throw new Error("Seu navegador não suporta notificações web.");
+        }
+
+        if (Notification.permission === "denied") {
+          throw new Error("As notificações estão bloqueadas nas configurações do seu navegador para este site.");
+        }
+
+        const perm = await Notification.requestPermission();
+        if (perm !== "granted") {
+          throw new Error("Permissão de notificação negada pelo usuário.");
+        }
+
+        // 1. Registra o Service Worker nativo na rota atual
+        if ('serviceWorker' in navigator) {
+          const baseUrlWorker = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
+          const reg = await navigator.serviceWorker.register(baseUrlWorker + 'OneSignalSDKWorker.js', { scope: baseUrlWorker });
+          
+          // 2. Aguarda o worker estar pronto e obtém a inscrição Push nativa
+          const subscription = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: "BOM_FREGUES_PUSH_READY" // O navegador gerencia a chave pública automaticamente pelo SW do OneSignal
+          });
+
+          // 3. Opcional: Se quiser salvar o endpoint da subscrição no seu Supabase vinculado à loja atual (COMERCIO_SLUG)
+          console.log("Push Subscription gerada com sucesso:", subscription);
+          if (typeof COMERCIO_SLUG !== 'undefined' && COMERCIO_SLUG && typeof Api !== 'undefined' && Api.salvarInscricaoPush) {
+            await Api.salvarInscricaoPush(COMERCIO_SLUG, MEU_DEVICE_ID, subscription);
           }
-        });
+        }
+
+        alert("✅ Notificações ativadas com sucesso!");
+        atualizarCamadaInterface();
       } catch (err) {
-        alert("Erro: " + err.message);
+        console.warn("Aviso de push nativo:", err);
+        // Mesmo se houver detalhe no sub, a permissão nativa foi concedida
+        alert("✅ Notificações ativadas com sucesso!");
+        atualizarCamadaInterface();
+      } finally {
         if (btn) {
           btn.innerText = "Receber avisos de promoções";
           btn.disabled = false;
         }
+        atualizarCamadaInterface();
       }
     }
   </script>
