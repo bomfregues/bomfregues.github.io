@@ -10,9 +10,9 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="theme-color" content="#ffffff">
 
-  <!-- Tags dinâmicas de ícone e manifesto -->
+  <!-- Tag de manifesto que receberá a URL da Edge Function -->
+  <link id="manifest-link" rel="manifest">
   <link id="apple-touch-icon-tag" rel="apple-touch-icon">
-  <link id="dynamic-manifest" rel="manifest">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com">
@@ -274,6 +274,19 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/api.js"></script>
+
+  <script>
+    // Configura o link de manifesto HTTPS para a Edge Function imediatamente
+    const urlParamsInit = new URLSearchParams(window.location.search);
+    const slugInit = urlParamsInit.get('loja') || "singello";
+    const SUPABASE_PROJECT_URL = "https://oxeqhhljrcffmsmqnrcg.supabase.co"; // URL base do seu Supabase
+    const manifestUrl = `${SUPABASE_PROJECT_URL}/functions/v1/manifest?loja=${slugInit}`;
+
+    document.addEventListener("DOMContentLoaded", () => {
+      const linkTag = document.getElementById('manifest-link');
+      if (linkTag) linkTag.href = manifestUrl;
+    });
+  </script>
 </head>
 <body>
 
@@ -385,7 +398,6 @@
     const isIos = () => /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
     const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 
-    // Registra Service Worker de imediato
     if ('serviceWorker' in navigator) {
       const baseUrlWorker = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
       navigator.serviceWorker.register(baseUrlWorker + 'sw.js', { scope: baseUrlWorker }).catch(() => {});
@@ -431,7 +443,6 @@
       }
     }
 
-    // Instalação nativa com tratamento de contexto
     async function acionarInstalacao() {
       if (isIos()) {
         document.getElementById('iosOverlay').style.display = 'block';
@@ -455,8 +466,7 @@
       setTimeout(() => document.getElementById('iosOverlay').style.display = 'none', 300);
     }
 
-    // GERA O ÍCONE REAL DA LOJA USANDO CANVAS
-    // Desenha o fundo com a cor do header da loja e coloca o logo centralizado
+    // Canvas para ícone do iOS
     function gerarIconeCustomizado(logoUrl, corFundo) {
       return new Promise((resolve) => {
         const canvas = document.createElement('canvas');
@@ -475,7 +485,7 @@
         const img = new Image();
         img.crossOrigin = "anonymous";
         img.onload = () => {
-          const padding = 64;
+          const padding = 72;
           const maxW = 512 - (padding * 2);
           const maxH = 512 - (padding * 2);
 
@@ -501,40 +511,6 @@
       });
     }
 
-    // Configura o manifesto dinâmico com o ícone real e o ID da loja
-    function configurarManifestoLoja(nomeLoja, iconeBase64, corFundo) {
-      const appleTag = document.getElementById('apple-touch-icon-tag');
-      if (appleTag) appleTag.href = iconeBase64;
-
-      const startUrl = `${window.location.origin}${window.location.pathname}?loja=${COMERCIO_SLUG}`;
-      const manifestObj = {
-        name: nomeLoja || "Bom Freguês",
-        short_name: nomeLoja || "Clube",
-        id: `/bomfregues_${COMERCIO_SLUG}`,
-        start_url: startUrl,
-        scope: `${window.location.origin}${window.location.pathname}?loja=${COMERCIO_SLUG}`,
-        display: "standalone",
-        background_color: corFundo || "#ffffff",
-        theme_color: corFundo || "#1c1917",
-        icons: [
-          {
-            src: iconeBase64,
-            sizes: "192x192 512x512",
-            type: "image/png",
-            purpose: "any maskable"
-          }
-        ]
-      };
-
-      const manifestBlob = new Blob([JSON.stringify(manifestObj)], { type: 'application/json' });
-      const manifestUrl = URL.createObjectURL(manifestBlob);
-      const manifestTag = document.getElementById('dynamic-manifest');
-      if (manifestTag) {
-        manifestTag.href = manifestUrl;
-      }
-    }
-
-    // Ativação e registro de Push Notifications
     async function ativarPush() {
       const btn = document.getElementById('btn-push-action');
       if (btn) {
@@ -638,9 +614,9 @@
             img.style.display = 'block';
           }
 
-          // Monta o ícone customizado com a logo e a cor do cabeçalho da loja
           const iconeCustom = await gerarIconeCustomizado(loja.logo_url, loja.cor_primaria);
-          configurarManifestoLoja(loja.nome_fantasia, iconeCustom, loja.cor_primaria);
+          const appleTag = document.getElementById('apple-touch-icon-tag');
+          if (appleTag) appleTag.href = iconeCustom;
         } else {
           document.getElementById('header-loja-nome').innerText = COMERCIO_SLUG;
         }

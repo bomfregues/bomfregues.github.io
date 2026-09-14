@@ -3,7 +3,7 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(clients.claim());
+  event.waitUntil(self.clients.claim());
 });
 
 self.addEventListener('push', function(event) {
@@ -12,11 +12,11 @@ self.addEventListener('push', function(event) {
     try {
       data = event.data.json();
     } catch (e) {
-      data = { title: 'Nova Promoção!', body: event.data.text() };
+      data = { title: 'Nova Notificação!', body: event.data.text() };
     }
   }
 
-  const title = data.title || 'Novidade na Loja!';
+  const title = data.title || 'Novidade no Clube!';
   const options = {
     body: data.body || 'Confira as novas ofertas disponíveis no app.',
     icon: data.icon || 'img/icon-192.png',
