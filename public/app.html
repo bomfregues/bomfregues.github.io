@@ -399,13 +399,11 @@
     const isIos = () => /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
     const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 
-    // Registra Service Worker no ciclo inicial
     if ('serviceWorker' in navigator) {
       const baseUrlWorker = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
       navigator.serviceWorker.register(baseUrlWorker + 'sw.js', { scope: baseUrlWorker }).catch(() => {});
     }
 
-    // Captura o prompt do Android
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
       deferredPrompt = e;
@@ -451,7 +449,6 @@
       }
     }
 
-    // Disparo imediato da instalação
     async function acionarInstalacao() {
       if (isIos()) {
         document.getElementById('iosOverlay').style.display = 'block';
@@ -467,21 +464,6 @@
           document.getElementById('btn-install-action').style.display = 'none';
           atualizarCamadaInterface();
         }
-      } else {
-        // Se o evento nativo do Chrome estiver sendo avaliado, instrui sutilmente
-        const btn = document.getElementById('btn-install-action');
-        btn.innerText = "Carregando instalador...";
-        btn.disabled = true;
-
-        setTimeout(() => {
-          btn.innerText = "Instalar aplicativo no celular";
-          btn.disabled = false;
-          if (deferredPrompt) {
-            deferredPrompt.prompt();
-          } else {
-            alert("Para instalar agora:\nToque no menu (3 pontinhos) do Chrome e selecione 'Instalar aplicativo'.");
-          }
-        }, 1200);
       }
     }
 
@@ -490,7 +472,6 @@
       setTimeout(() => document.getElementById('iosOverlay').style.display = 'none', 300);
     }
 
-    // Canvas dinâmico para Apple Touch Icon do iOS
     function gerarIconeCustomizado(logoUrl, corFundo) {
       return new Promise((resolve) => {
         const canvas = document.createElement('canvas');
