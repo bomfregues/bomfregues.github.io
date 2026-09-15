@@ -120,7 +120,7 @@ const Api = {
     return data.promocao;
   },
 
-  async deletarPromocao(slug, senha, id) {
+  async deletarPromocao(slug, id) {
     const headers = await getAuthHeaders();
     const res = await fetch(`${BASE_FUNCTIONS_URL}/promocoes`, {
       method: "DELETE",

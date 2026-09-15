@@ -51,7 +51,7 @@ Deno.serve(async (req) => {
     if (req.method === 'POST') {
       const { slug, titulo, descricao, validade, imagem_base64, app_url } = await req.json();
       if (!slug || !titulo || !descricao || !validade) {
-        throw new Error("Campos incompletos.");
+        throw new Error("Campos obrigatórios ausentes: slug, título, descrição e validade.");
       }
       await requireOwner(slug);
 
@@ -66,7 +66,7 @@ Deno.serve(async (req) => {
       if (imagem_base64 && imagem_base64.startsWith('data:image')) {
         const base64Data = imagem_base64.replace(/^data:image\/\w+;base64,/, '');
         const bytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
-        const fileName = `promos/${slug}_${Date.now()}.jpg`;
+        const fileName = `promos/${slug.toLowerCase()}_${Date.now()}.jpg`;
 
         const { error: uploadError } = await supabase.storage
           .from('public-uploads')

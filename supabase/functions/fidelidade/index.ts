@@ -113,10 +113,9 @@ Deno.serve(async (req) => {
             .from('public-uploads')
             .upload(fileName, bytes, { contentType: 'image/jpeg', upsert: true });
 
-          if (!uploadError) {
-            const { data: publicData } = supabase.storage.from('public-uploads').getPublicUrl(fileName);
-            imagem_url = publicData.publicUrl;
-          }
+          if (uploadError) throw uploadError;
+          const { data: publicData } = supabase.storage.from('public-uploads').getPublicUrl(fileName);
+          imagem_url = publicData.publicUrl;
         }
 
         const { data, error } = await supabase.from('premios').insert([{

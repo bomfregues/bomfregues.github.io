@@ -574,9 +574,15 @@
     async function processarFotoPromo(e) {
       const f = e.target.files[0];
       if (f) {
-        promoB64 = await comprimirImagemParaBase64(f, 800);
-        document.getElementById('thumb-promo-box').innerHTML = `<img src="${promoB64}">`;
-        document.getElementById('promo-status-label').innerText = `${f.name} selecionada.`;
+        try {
+          promoB64 = await comprimirImagemParaBase64(f, 800);
+          document.getElementById('thumb-promo-box').innerHTML = `<img src="${promoB64}" alt="Prévia da promoção">`;
+          document.getElementById('promo-status-label').innerText = `${f.name} selecionada.`;
+        } catch (err) {
+          promoB64 = null;
+          document.getElementById('promo-status-label').innerText = 'Não foi possível processar a imagem.';
+          alert(`Erro ao carregar a imagem: ${err.message}`);
+        }
       }
     }
 
@@ -637,34 +643,57 @@
 
     async function deletarPromo(id) {
       if (!confirm("Deseja excluir esta promoção?")) return;
-      await Api.deletarPromocao(lojaAtual.slug, null, id);
+      await Api.deletarPromocao(lojaAtual.slug, id);
       document.getElementById(`promo-${id}`)?.remove();
     }
 
     async function processarFotoPremio(e) {
       const f = e.target.files[0];
       if (f) {
-        premioB64 = await comprimirImagemParaBase64(f, 600);
-        document.getElementById('thumb-premio-box').innerHTML = `<img src="${premioB64}">`;
-        document.getElementById('premio-status-label').innerText = `${f.name} selecionada.`;
+        try {
+          premioB64 = await comprimirImagemParaBase64(f, 600);
+          document.getElementById('thumb-premio-box').innerHTML = `<img src="${premioB64}" alt="Prévia do prêmio">`;
+          document.getElementById('premio-status-label').innerText = `${f.name} selecionada.`;
+        } catch (err) {
+          premioB64 = null;
+          document.getElementById('premio-status-label').innerText = 'Não foi possível processar a imagem.';
+          alert(`Erro ao carregar a imagem: ${err.message}`);
+        }
       }
     }
 
     async function criarPremio(e) {
       e.preventDefault();
-      await Api.criarPremio({
-        slug: lojaAtual.slug,
-        titulo: document.getElementById('premio-titulo').value.trim(),
-        pontos: parseInt(document.getElementById('premio-pontos').value),
-        imagem_base64: premioB64
-      });
-      alert("Recompensa cadastrada!");
-      document.getElementById('premio-titulo').value = '';
-      document.getElementById('premio-pontos').value = '';
-      document.getElementById('thumb-premio-box').innerHTML = `<span style="font-size:20px; color:#a8a29e;">Foto</span>`;
-      document.getElementById('premio-status-label').innerText = "Foto para catálogo.";
-      premioB64 = null;
-      await carregarPremios();
+      if (!lojaAtual) return alert("Crie sua loja antes de cadastrar prêmios.");
+      const titulo = document.getElementById('premio-titulo').value.trim();
+      const pontos = Number.parseInt(document.getElementById('premio-pontos').value, 10);
+      const btn = document.getElementById('btn-post-premio');
+      if (!titulo || !Number.isInteger(pontos) || pontos <= 0) {
+        return alert("Informe o título e uma quantidade de pontos válida.");
+      }
+
+      btn.disabled = true;
+      btn.innerText = "Adicionando prêmio...";
+      try {
+        await Api.criarPremio({
+          slug: lojaAtual.slug,
+          titulo,
+          pontos,
+          imagem_base64: premioB64
+        });
+        alert("Recompensa cadastrada!");
+        document.getElementById('premio-titulo').value = '';
+        document.getElementById('premio-pontos').value = '';
+        document.getElementById('thumb-premio-box').innerHTML = `<span style="font-size:20px; color:#a8a29e;">Foto</span>`;
+        document.getElementById('premio-status-label').innerText = "Foto para catálogo.";
+        premioB64 = null;
+        await carregarPremios();
+      } catch (err) {
+        alert("Erro ao cadastrar prêmio: " + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerText = "Adicionar ao Catálogo";
+      }
     }
 
     async function carregarPremios() {
