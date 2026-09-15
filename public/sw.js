@@ -12,7 +12,7 @@ self.addEventListener('push', function(event) {
     try {
       data = event.data.json();
     } catch (e) {
-      data = { title: 'Nova Promoção!', body: event.data.text() };
+      data = { title: 'Nova Notificação!', body: event.data.text() };
     }
   }
 
@@ -34,16 +34,25 @@ self.addEventListener('push', function(event) {
 
 self.addEventListener('notificationclick', function(event) {
   event.notification.close();
-  const targetUrl = event.notification.data && event.notification.data.url ? event.notification.data.url : '/';
+
+  // Garante uma URL absoluta válida
+  const rawUrl = event.notification.data && event.notification.data.url ? event.notification.data.url : '/';
+  const targetUrl = new URL(rawUrl, self.location.origin).href;
 
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
-      for (let i = 0; i < clientList.length; i++) {
-        let client = clientList[i];
-        if (client.url === targetUrl && 'focus' in client) {
-          return client.focus();
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(windowClients) {
+      // 1. Procura se o PWA já está aberto em segundo plano
+      for (let i = 0; i < windowClients.length; i++) {
+        const client = windowClients[i];
+        // Se a janela já estiver aberta na loja (ou na raiz da loja), dá foco nela
+        if (client.url.startsWith(targetUrl) || targetUrl.startsWith(client.url)) {
+          if ('focus' in client) {
+            return client.focus();
+          }
         }
       }
+
+      // 2. Se não estiver aberto, abre no escopo do WebAPK nativo
       if (clients.openWindow) {
         return clients.openWindow(targetUrl);
       }

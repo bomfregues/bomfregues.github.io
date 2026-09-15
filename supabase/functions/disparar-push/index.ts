@@ -8,9 +8,12 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+// Chaves VAPID oficiais
 const VAPID_PUBLIC_KEY = Deno.env.get("VAPID_PUBLIC_KEY") ?? "BPfvsPqjD8sW50kBp7nwkrQuzks26BdfuTy_Je5Rd-pafD_dHWt3NjRb0FcvTgf1ak6FUAZmbzwfC322LgU7oLc";
 const VAPID_PRIVATE_KEY = Deno.env.get("VAPID_PRIVATE_KEY") ?? "";
-const VAPID_SUBJECT = "mailto:suporte@bomfregues.com";
+
+// A Apple EXIGE uma URL HTTPS válida e acessível como subject do VAPID
+const VAPID_SUBJECT = "https://bomfregues.github.io";
 
 if (VAPID_PRIVATE_KEY) {
   webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
@@ -67,6 +70,11 @@ serve(async (req) => {
       url: app_url || `https://bomfregues.github.io/public/lojas/${slug}/`
     });
 
+    const pushOptions = {
+      TTL: 60 * 60 * 24, // 24 horas de validade
+      urgency: "high" as const
+    };
+
     let sucessos = 0;
     let falhas = 0;
 
@@ -85,17 +93,22 @@ serve(async (req) => {
 
         console.log(`--> Enviando para endpoint: ${subObj.endpoint.substring(0, 45)}...`);
 
-        await webpush.sendNotification(subObj, payload);
+        await webpush.sendNotification(subObj, payload, pushOptions);
 
         sucessos++;
         console.log(`--> Notificação entregue com sucesso para o ID: ${reg.id}`);
       } catch (err: any) {
         falhas++;
-        console.error(`--> Erro ao enviar para ID ${reg.id}:`, err.message || err);
+        console.error(`--> Erro detalhado ao enviar para ID ${reg.id}:`, {
+          status: err.statusCode,
+          headers: err.headers,
+          body: err.body,
+          message: err.message
+        });
 
-        // Se a inscrição expirou (404 ou 410 Gone), limpa do banco
-        if (err.statusCode === 410 || err.statusCode === 404 || err.message?.includes("410") || err.message?.includes("404")) {
-          console.log(`--> Removendo inscrição expirada: ${reg.id}`);
+        // Se o token expirou (404/410) ou foi invalidado pela Apple/Google (400 Bad Request / 401 Unauthorized por chave antiga)
+        if (err.statusCode === 410 || err.statusCode === 404 || err.statusCode === 400 || err.statusCode === 401) {
+          console.log(`--> Removendo inscrição inválida/expirada do banco: ID ${reg.id} (Status ${err.statusCode})`);
           await supabase.from("push_subscriptions").delete().eq("id", reg.id);
         }
       }
