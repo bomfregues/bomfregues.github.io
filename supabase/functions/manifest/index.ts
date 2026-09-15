@@ -36,7 +36,7 @@ serve(async (req) => {
 
     const manifest = {
       name: nome,
-      short_name: nome.length > 12 ? nome.slice(0, 12) : nome,
+      short_name: nome,
       // ID único impede que o WebAPK sobrescreva o outro
       id: `https://bomfregues.github.io/public/app.html?loja=${slug}`,
       start_url: appUrl,

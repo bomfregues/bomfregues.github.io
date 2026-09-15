@@ -131,12 +131,87 @@ Deno.serve(async (req) => {
         });
       }
 
+      // GERAR QR CODE DE BALCÃO: o token é armazenado e só pode ser consumido uma vez.
+      if (body.acao === 'gerar_qr_pontuacao') {
+        await requireOwner(comercio.id);
+        const token = crypto.randomUUID().replace(/-/g, '');
+        const chaveToken = `PONTUAR:${token}`;
+
+        await supabase.from('notas_lidas').delete()
+          .eq('comercio_id', comercio.id)
+          .like('chave_nota', 'PONTUAR:%');
+
+        const { error } = await supabase.from('notas_lidas').insert({
+          chave_nota: chaveToken,
+          comercio_id: comercio.id,
+          device_id: `qr:${token}`
+        });
+        if (error) throw error;
+
+        return new Response(JSON.stringify({
+          success: true,
+          token,
+          qr_text: `https://bomfregues.github.io/public/app.html?loja=${slug.toLowerCase()}&pontuar=${token}`
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
       // PROCESSAR LEITURA DE NOTA FISCAL (QR CODE)
       if (body.acao === 'processar_nota') {
-        const url_nota = body.url_nota;
+        const url_nota = String(body.url_nota || '');
+        const deviceId = String(body.device_id || '').trim();
+        if (!deviceId) throw new Error("Dispositivo não identificado.");
+        const qrToken = String(url_nota || '').match(/[?&]pontuar=([A-Za-z0-9]+)/)?.[1];
+
+        if (qrToken) {
+          const chaveToken = `PONTUAR:${qrToken}`;
+          const { data: user } = await supabase
+            .from('usuarios_fidelidade')
+            .select('pontos, cpf')
+            .eq('device_id', deviceId)
+            .eq('comercio_id', comercio.id)
+            .single();
+          if (!user) throw new Error("Não foi possível localizar seu saldo.");
+
+          const { data: tokenConsumido, error: tokenError } = await supabase
+            .from('notas_lidas')
+            .delete()
+            .eq('chave_nota', chaveToken)
+            .eq('comercio_id', comercio.id)
+            .select('chave_nota')
+            .maybeSingle();
+
+          if (tokenError) throw tokenError;
+          if (!tokenConsumido) throw new Error("Este QR Code já foi utilizado ou expirou.");
+
+          const pontosGanhos = 100;
+          const novosPontos = (user.pontos || 0) + pontosGanhos;
+          const { error: updateError } = user.cpf
+            ? await supabase.from('usuarios_fidelidade').update({ pontos: novosPontos }).eq('cpf', user.cpf).eq('comercio_id', comercio.id)
+            : await supabase.from('usuarios_fidelidade').update({ pontos: novosPontos }).eq('device_id', deviceId).eq('comercio_id', comercio.id);
+          if (updateError) throw updateError;
+
+          return new Response(JSON.stringify({ success: true, novosPontos, pontosGanhos }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
         const matchKey = url_nota.match(/\d{44}/);
         if (!matchKey) throw new Error("QR Code inválido: Não é uma nota fiscal reconhecida.");
         const chave_nota = matchKey[0];
+
+        let soma = 0;
+        let peso = 2;
+        for (let index = 42; index >= 0; index--) {
+          soma += Number(chave_nota[index]) * peso;
+          peso = peso === 9 ? 2 : peso + 1;
+        }
+        const resto = soma % 11;
+        const digitoVerificador = resto === 0 || resto === 1 ? 0 : 11 - resto;
+        if (digitoVerificador !== Number(chave_nota[43])) {
+          throw new Error("QR Code inválido: chave fiscal inconsistente.");
+        }
 
         // Valida se o CNPJ embutido na chave pertence ao comércio correto
         const cnpj_nota = chave_nota.substring(6, 20);
@@ -155,16 +230,17 @@ Deno.serve(async (req) => {
         if (notaExistente) throw new Error("Você já resgatou os pontos dessa nota fiscal!");
 
         const pontosGanhos = 100;
-        await supabase.from('notas_lidas').insert({
+        const { error: notaInsertError } = await supabase.from('notas_lidas').insert({
           chave_nota,
           comercio_id: comercio.id,
-          device_id: body.device_id
+          device_id: deviceId
         });
+        if (notaInsertError) throw notaInsertError;
 
         const { data: user } = await supabase
           .from('usuarios_fidelidade')
           .select('pontos, cpf')
-          .eq('device_id', body.device_id)
+          .eq('device_id', deviceId)
           .eq('comercio_id', comercio.id)
           .single();
 
@@ -180,7 +256,7 @@ Deno.serve(async (req) => {
           await supabase
             .from('usuarios_fidelidade')
             .update({ pontos: novosPontos })
-            .eq('device_id', body.device_id)
+            .eq('device_id', deviceId)
             .eq('comercio_id', comercio.id);
         }
 

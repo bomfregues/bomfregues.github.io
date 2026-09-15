@@ -71,7 +71,7 @@ function gerarManifestoLoja(slug: string, nome: string, cor: string, logoUrl: st
   const iconFinal = logoUrl || "https://bomfregues.github.io/public/img/icon-192.png";
   const manifest = {
     name: nome || "Bom Freguês",
-    short_name: (nome && nome.length > 12) ? nome.slice(0, 12) : (nome || "Clube"),
+    short_name: nome || "Clube",
     id: `https://bomfregues.github.io/public/lojas/${slug}/`,
     start_url: `./index.html`,
     scope: `./`,
@@ -168,13 +168,13 @@ function gerarHtmlLoja(slug: string, nomeLoja: string, corFundo: string, logoUrl
     }
 
     .clean-logo-wrap {
-      width: 52px;
-      height: 52px;
+      width: 64px;
+      height: 64px;
       display: flex;
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
-      padding: 6px;
+      padding: 4px;
     }
     .clean-logo-wrap img {
       max-width: 100%;
@@ -467,7 +467,6 @@ function gerarHtmlLoja(slug: string, nomeLoja: string, corFundo: string, logoUrl
               applicationServerKey: urlBase64ToUint8Array(VAPID_KEY)
             });
           }
-
           if (sub && typeof Api !== 'undefined' && Api.salvarInscricaoPush) {
             await Api.salvarInscricaoPush(COMERCIO_SLUG, MEU_DEVICE_ID, sub.toJSON());
           }
@@ -570,12 +569,7 @@ function gerarHtmlLoja(slug: string, nomeLoja: string, corFundo: string, logoUrl
     async function carregarOfertas() {
       const box = document.getElementById('lista-promos');
       try {
-        if (!supabaseClient) return;
-        const { data: promocoes } = await supabaseClient
-          .from('promocoes')
-          .select('*')
-          .eq('comercio_slug', COMERCIO_SLUG)
-          .order('criado_em', { ascending: false });
+        const promocoes = await Api.listarPromocoes(COMERCIO_SLUG);
 
         if (!promocoes || !promocoes.length) {
           box.innerHTML = \`<div class="showcase-card" style="padding:28px; text-align:center; font-size:13px; color:var(--cor-subtexto);">Nenhuma promoção ativa no momento.</div>\`;
@@ -664,7 +658,11 @@ function gerarHtmlLoja(slug: string, nomeLoja: string, corFundo: string, logoUrl
     async function vincularCpfModal() {
       const cpf = prompt("Digite seu CPF (11 números):");
       if (!cpf) return;
+      const confirmacao = prompt("Digite seu CPF novamente para confirmar:");
+      if (!confirmacao) return;
       const limpo = cpf.replace(/\\D/g, '');
+      const confirmacaoLimpa = confirmacao.replace(/\\D/g, '');
+      if (limpo !== confirmacaoLimpa) return alert("Os CPFs não conferem.");
       if (limpo.length !== 11) return alert("CPF inválido.");
       try {
         const data = await Api.vincularCpf(COMERCIO_SLUG, MEU_DEVICE_ID, limpo);

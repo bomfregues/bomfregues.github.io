@@ -82,7 +82,14 @@ Deno.serve(async (req) => {
 
       const { data, error } = await supabase
         .from('promocoes')
-        .insert([{ comercio_id: comercio.id, titulo, descricao, validade, imagem_url }])
+        .insert([{
+          comercio_id: comercio.id,
+          comercio_slug: slug.toLowerCase(),
+          titulo,
+          descricao,
+          validade,
+          imagem_url
+        }])
         .select()
         .single();
 
@@ -93,6 +100,7 @@ Deno.serve(async (req) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'apikey': Deno.env.get('SUPABASE_ANON_KEY') ?? '',
           ...(authorization ? { Authorization: authorization } : {})
         },
         body: JSON.stringify({
@@ -105,6 +113,8 @@ Deno.serve(async (req) => {
       });
       if (!pushResponse.ok) {
         console.warn('Promoção criada, mas o disparo nativo falhou:', await pushResponse.text());
+      } else {
+        console.log('Disparo nativo solicitado com sucesso:', await pushResponse.text());
       }
 
       return new Response(JSON.stringify({ success: true, promocao: data }), {

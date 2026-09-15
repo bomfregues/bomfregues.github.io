@@ -737,7 +737,11 @@
     async function vincularCpfModal() {
       const cpf = prompt("Digite seu CPF (11 números):");
       if (!cpf) return;
+      const confirmacao = prompt("Digite seu CPF novamente para confirmar:");
+      if (!confirmacao) return;
       const limpo = cpf.replace(/\D/g, '');
+      const confirmacaoLimpa = confirmacao.replace(/\D/g, '');
+      if (limpo !== confirmacaoLimpa) return alert("Os CPFs não conferem.");
       if (limpo.length !== 11) return alert("CPF inválido.");
       try {
         const data = await Api.vincularCpf(COMERCIO_SLUG, MEU_DEVICE_ID, limpo);
