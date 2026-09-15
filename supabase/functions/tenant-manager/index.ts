@@ -11,6 +11,7 @@ const GITHUB_TOKEN = Deno.env.get("GITHUB_TOKEN") ?? "";
 const GITHUB_OWNER = Deno.env.get("GITHUB_OWNER") ?? "bomfregues";
 const GITHUB_REPO = Deno.env.get("GITHUB_REPO") ?? "bomfregues";
 const GITHUB_BRANCH = "main";
+const VAPID_PUBLIC_KEY = Deno.env.get("VAPID_PUBLIC_KEY") ?? "BPfvsPqjD8sW50kBp7nwkrQuzks26BdfuTy_Je5Rd-pafD_dHWt3NjRb0FcvTgf1ak6FUAZmbzwfC322LgU7oLc";
 
 async function salvarArquivoNoGitHub(caminho: string, conteudoTexto: string, commitMsg: string) {
   if (!GITHUB_TOKEN) {
@@ -93,7 +94,7 @@ function gerarManifestoLoja(slug: string, nome: string, cor: string, logoUrl: st
   return JSON.stringify(manifest, null, 2);
 }
 
-function gerarHtmlLoja(slug: string, nomeLoja: string, corFundo: string) {
+function gerarHtmlLoja(slug: string, nomeLoja: string, corFundo: string, logoUrl: string) {
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -107,7 +108,7 @@ function gerarHtmlLoja(slug: string, nomeLoja: string, corFundo: string) {
   <meta name="theme-color" content="${corFundo || "#ffffff"}">
 
   <link rel="manifest" href="manifest.json">
-  <link rel="apple-touch-icon" href="../../img/icon-192.png">
+  <link rel="apple-touch-icon" id="apple-icon" href="../../img/icon-192.png">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com">
@@ -121,7 +122,7 @@ function gerarHtmlLoja(slug: string, nomeLoja: string, corFundo: string) {
       --cor-texto-header: #ffffff;
       --cor-subtexto-header: rgba(255,255,255,0.85);
       --borda-header: none;
-      --cor-primaria: #1c1917;
+      --cor-primaria: ${corFundo || "#1c1917"};
       --cor-secundaria: #ffffff;
       --cor-destaque: #ea580c;
       --cor-fundo: #f8fafc;
@@ -148,8 +149,21 @@ function gerarHtmlLoja(slug: string, nomeLoja: string, corFundo: string) {
       transition: background-color 0.2s ease, border-color 0.2s ease;
     }
 
-    .clean-logo-wrap { width: 52px; height: 52px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-    .clean-logo-wrap img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
+    .clean-logo-wrap {
+      width: 52px;
+      height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      padding: 6px;
+    }
+    .clean-logo-wrap img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      display: block;
+    }
 
     .header-text-group { margin-left: 14px; }
     .header-title-clean { font-size: 17px; font-weight: 800; color: var(--cor-texto-header) !important; line-height: 1.2; }
@@ -291,9 +305,8 @@ function gerarHtmlLoja(slug: string, nomeLoja: string, corFundo: string) {
   </div>
 
   <script>
-    // Identificador dinâmico autônomo baseado no caminho físico da pasta
-    const segments = window.location.pathname.replace(/\\/index\\.html$/, '').replace(/\\/+$/, '').split('/');
-    const COMERCIO_SLUG = "${slug}" || segments[segments.length - 1];
+    const COMERCIO_SLUG = "${slug}";
+    const VAPID_KEY = "${VAPID_PUBLIC_KEY}";
 
     let MEU_DEVICE_ID = localStorage.getItem('bomfregues_device_id');
     if (!MEU_DEVICE_ID) {
@@ -309,7 +322,6 @@ function gerarHtmlLoja(slug: string, nomeLoja: string, corFundo: string) {
     const isIos = () => /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
     const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 
-    // Registra o Service Worker com escopo relativo estrito para ESTA pasta física
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('../../sw.js', { scope: './' }).catch(() => {});
     }
@@ -332,7 +344,6 @@ function gerarHtmlLoja(slug: string, nomeLoja: string, corFundo: string) {
       const spacer = document.getElementById('section-spacer');
 
       if (!btnInstall || !btnPush) return;
-
       btnInstall.style.display = isStandalone() ? 'none' : 'flex';
 
       if ("Notification" in window && Notification.permission === "granted") {
@@ -368,6 +379,113 @@ function gerarHtmlLoja(slug: string, nomeLoja: string, corFundo: string) {
     function fecharModalIos() {
       document.getElementById('iosSheet').classList.remove('active');
       setTimeout(() => document.getElementById('iosOverlay').style.display = 'none', 300);
+    }
+
+    function urlBase64ToUint8Array(base64String) {
+      const padding = '='.repeat((4 - base64String.length % 4) % 4);
+      const base64 = (base64String + padding).replace(/\\-/g, '+').replace(/_/g, '/');
+      const rawData = window.atob(base64);
+      const outputArray = new Uint8Array(rawData.length);
+      for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+      }
+      return outputArray;
+    }
+
+    function gerarIconeCustomizado(logoUrl, corFundo) {
+      return new Promise((resolve) => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 512;
+        const ctx = canvas.getContext('2d');
+
+        ctx.fillStyle = corFundo || '#1c1917';
+        ctx.fillRect(0, 0, 512, 512);
+
+        if (!logoUrl) return resolve(canvas.toDataURL('image/png'));
+
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => {
+          const padding = 120;
+          const maxW = 512 - (padding * 2);
+          const maxH = 512 - (padding * 2);
+
+          let drawW = img.width;
+          let drawH = img.height;
+          const ratio = Math.min(maxW / drawW, maxH / drawH);
+          drawW = drawW * ratio;
+          drawH = drawH * ratio;
+
+          const posX = (512 - drawW) / 2;
+          const posY = (512 - drawH) / 2;
+
+          ctx.drawImage(img, posX, posY, drawW, drawH);
+          resolve(canvas.toDataURL('image/png'));
+        };
+        img.onerror = () => resolve(canvas.toDataURL('image/png'));
+        img.src = logoUrl;
+      });
+    }
+
+    async function ativarPush() {
+      const btn = document.getElementById('btn-push-action');
+      if (btn) { btn.innerText = "Ativando..."; btn.disabled = true; }
+
+      try {
+        if (!("Notification" in window)) throw new Error("Seu dispositivo não suporta notificações web.");
+        if (isIos() && !isStandalone()) throw new Error("No iPhone, adicione à Tela de Início primeiro.");
+
+        const perm = await Notification.requestPermission();
+        if (perm !== "granted") throw new Error("Permissão de notificação negada.");
+
+        if ('serviceWorker' in navigator) {
+          const reg = await navigator.serviceWorker.ready;
+          
+          let sub = await reg.pushManager.getSubscription();
+          if (!sub) {
+            sub = await reg.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: urlBase64ToUint8Array(VAPID_KEY)
+            });
+          }
+
+          if (sub && typeof Api !== 'undefined' && Api.salvarInscricaoPush) {
+            await Api.salvarInscricaoPush(COMERCIO_SLUG, MEU_DEVICE_ID, sub.toJSON());
+          }
+        }
+
+        alert("✅ Notificações ativadas com sucesso!");
+        if (btn) btn.style.display = 'none';
+      } catch (err) {
+        alert("Erro no Push: " + err.message);
+      } finally {
+        if (btn) { btn.innerText = "Receber avisos de promoções"; btn.disabled = false; }
+        atualizarCamadaInterface();
+      }
+    }
+
+    async function sincronizarPushSilencioso() {
+      try {
+        if (!("Notification" in window) || Notification.permission !== "granted") return;
+        if (!('serviceWorker' in navigator)) return;
+
+        const reg = await navigator.serviceWorker.ready;
+        let sub = await reg.pushManager.getSubscription();
+
+        if (!sub) {
+          sub = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(VAPID_KEY)
+          });
+        }
+
+        if (sub && typeof Api !== 'undefined' && Api.salvarInscricaoPush) {
+          await Api.salvarInscricaoPush(COMERCIO_SLUG, MEU_DEVICE_ID, sub.toJSON());
+        }
+      } catch (e) {
+        console.warn("Sincronização em segundo plano de push:", e);
+      }
     }
 
     function calcularCorTextoContraste(hexColor) {
@@ -422,6 +540,10 @@ function gerarHtmlLoja(slug: string, nomeLoja: string, corFundo: string) {
             const img = document.getElementById('logo-img-header');
             img.src = loja.logo_url;
             img.style.display = 'block';
+
+            const iconeApple = await gerarIconeCustomizado(loja.logo_url, loja.cor_primaria);
+            const tagApple = document.getElementById('apple-icon');
+            if (tagApple) tagApple.href = iconeApple;
           }
         }
       } catch (e) {}
@@ -575,37 +697,12 @@ function gerarHtmlLoja(slug: string, nomeLoja: string, corFundo: string) {
       }
     }
 
-    async function ativarPush() {
-      const btn = document.getElementById('btn-push-action');
-      if (btn) { btn.innerText = "Ativando..."; btn.disabled = true; }
-      try {
-        if (!("Notification" in window)) throw new Error("Seu dispositivo não suporta notificações web nativas.");
-        if (isIos() && !isStandalone()) throw new Error("No iPhone, adicione à Tela de Início primeiro.");
-
-        const perm = await Notification.requestPermission();
-        if (perm !== "granted") throw new Error("Permissão negada.");
-
-        if ('serviceWorker' in navigator) {
-          const reg = await navigator.serviceWorker.ready;
-          const sub = await reg.pushManager.getSubscription();
-          if (sub && typeof Api !== 'undefined' && Api.salvarInscricaoPush) {
-            await Api.salvarInscricaoPush(COMERCIO_SLUG, MEU_DEVICE_ID, sub.toJSON());
-          }
-        }
-        alert("✅ Notificações ativadas com sucesso!");
-        if (btn) btn.style.display = 'none';
-      } catch (err) { alert(err.message); }
-      finally {
-        if (btn) { btn.innerText = "Receber avisos de promoções"; btn.disabled = false; }
-        atualizarCamadaInterface();
-      }
-    }
-
     carregarDadosLoja();
     carregarOfertas();
     carregarPontos();
     carregarPremios();
     atualizarCamadaInterface();
+    sincronizarPushSilencioso();
   <\/script>
 </body>
 </html>`;
@@ -637,7 +734,6 @@ serve(async (req) => {
       const slug = (payload.slug || "").toLowerCase().trim();
       if (!slug) throw new Error("Slug obrigatório.");
 
-      // 1. Salva ou atualiza no Supabase
       const { data: loja, error } = await supabase
         .from("comercios")
         .upsert({
@@ -657,8 +753,6 @@ serve(async (req) => {
 
       if (error) throw error;
 
-      // 2. CRIAÇÃO AUTOMÁTICA DA PASTA DA LOJA NO GITHUB
-      // public/lojas/<slug>/manifest.json
       const manifestContent = gerarManifestoLoja(slug, loja.nome_fantasia, loja.cor_primaria, loja.logo_url);
       await salvarArquivoNoGitHub(
         `public/lojas/${slug}/manifest.json`,
@@ -666,8 +760,7 @@ serve(async (req) => {
         `chore: auto-provision pwa manifest for ${slug}`
       );
 
-      // public/lojas/<slug>/index.html
-      const htmlContent = gerarHtmlLoja(slug, loja.nome_fantasia, loja.cor_primaria);
+      const htmlContent = gerarHtmlLoja(slug, loja.nome_fantasia, loja.cor_primaria, loja.logo_url);
       await salvarArquivoNoGitHub(
         `public/lojas/${slug}/index.html`,
         htmlContent,
