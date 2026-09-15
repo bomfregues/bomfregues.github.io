@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Singello Brigadeiro</title>
+
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="theme-color" content="#000000">
+
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" id="apple-icon" href="../../img/icon-192.png">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="../../css/global.css">
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+
+  <style>
+    :root {
+      --cor-texto-header: #ffffff;
+      --cor-subtexto-header: rgba(255,255,255,0.85);
+      --borda-header: none;
+      --cor-primaria: #000000;
+      --cor-secundaria: #ffffff;
+      --cor-destaque: #ea580c;
+      --cor-fundo: #f8fafc;
+      --cor-texto: #1c1917;
+      --cor-subtexto: #78716c;
+      --cor-borda: #e7e5e4;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', -apple-system, sans-serif; -webkit-tap-highlight-color: transparent; }
+    body { background-color: var(--cor-fundo) !important; color: var(--cor-texto); min-height: 100vh; padding-bottom: 96px !important; margin: 0 !important; }
+
+    .tab-view { display: none; }
+    .tab-view.active { display: block; }
+
+    .top-header {
+      background: var(--cor-primaria) !important;
+      padding: 24px 20px 36px 20px !important;
+      border-radius: 0 0 28px 28px !important;
+      display: flex;
+      align-items: center;
+      border-bottom: var(--borda-header) !important;
+      position: relative;
+      z-index: 1;
+      transition: background-color 0.2s ease, border-color 0.2s ease;
+    }
+
+    /* PADDING E ESCALA PROPORCIONAL PARA O LOGO NO APP */
+    .clean-logo-wrap {
+      width: 52px;
+      height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      padding: 6px;
+    }
+    .clean-logo-wrap img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+
+    .header-text-group { margin-left: 14px; }
+    .header-title-clean { font-size: 17px; font-weight: 800; color: var(--cor-texto-header) !important; line-height: 1.2; }
+    .header-sub-clean { font-size: 11px; color: var(--cor-subtexto-header) !important; margin-top: 3px; }
+
+    .container-app-shield { max-width: 480px !important; margin: 0 auto !important; padding: 0 16px !important; position: relative; z-index: 10; }
+    .floating-stack-area { margin-top: -20px; margin-bottom: 16px; display: flex; flex-direction: column; gap: 10px; position: relative; z-index: 50; width: 100%; }
+
+    .btn-pill-floating {
+      border-radius: 9999px; padding: 14px 20px; font-size: 13px; font-weight: 800; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 14px rgba(0,0,0,0.08); width: 100%;
+      border: 1.5px solid var(--cor-borda); background: #ffffff; color: #1c1917;
+    }
+    .btn-push-floating { color: var(--cor-destaque); }
+
+    .cpf-floating-card {
+      background: #ffffff; border: 1.5px solid var(--cor-borda); border-radius: 18px; padding: 14px 18px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.06); display: none; flex-direction: column; gap: 4px; position: relative; z-index: 60;
+    }
+    .cpf-floating-title { font-size: 12px; color: var(--cor-subtexto); line-height: 1.4; }
+    .cpf-floating-action { background: none; border: none; color: var(--cor-destaque); font-size: 12px; font-weight: 800; cursor: pointer; text-align: left; padding: 2px 0 0 0; text-decoration: underline; }
+
+    .section-spacer-top { height: 28px; width: 100%; }
+    .headline-bar-fixed { font-size: 18px !important; font-weight: 800 !important; color: var(--cor-texto) !important; margin-bottom: 16px !important; }
+
+    .points-hub-card { background: #ffffff; border: 1px solid var(--cor-borda); border-radius: 24px; padding: 24px 20px; text-align: center; margin-bottom: 24px; }
+    .points-total { font-size: 52px; font-weight: 800; color: var(--cor-texto); line-height: 1; display: flex; justify-content: center; align-items: baseline; gap: 6px; }
+    .points-total span { font-size: 16px; font-weight: 700; color: var(--cor-destaque); }
+    .points-label-sub { font-size: 11px; color: var(--cor-subtexto); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin: 8px 0 22px; }
+    .btn-scan-trigger { width: 100%; background: var(--cor-destaque); color: #ffffff; border: none; border-radius: 14px; padding: 14px; font-size: 13px; font-weight: 700; cursor: pointer; }
+    #reader-container { display: none; margin-top: 16px; border-radius: 16px; overflow: hidden; border: 2px solid var(--cor-destaque); background: #000; }
+
+    .showcase-card { background: #ffffff; border-radius: 20px; overflow: hidden; margin-bottom: 20px; border: 1px solid var(--cor-borda); }
+    .showcase-media { width: 100%; height: 180px; object-fit: cover; display: block; background: #f1f5f9; }
+    .showcase-info { padding: 18px; }
+    .showcase-badge { display: inline-block; background: var(--cor-secundaria); color: var(--cor-destaque); font-size: 10px; font-weight: 800; padding: 4px 8px; border-radius: 6px; text-transform: uppercase; margin-bottom: 8px; border: 1px solid rgba(0,0,0,0.06); }
+    .showcase-title { font-size: 16px; font-weight: 800; color: var(--cor-texto); margin-bottom: 6px; }
+    .showcase-desc { font-size: 13px; color: var(--cor-subtexto); line-height: 1.4; margin-bottom: 12px; }
+    .showcase-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; padding-top: 12px; border-top: 1px solid #f1f5f9; }
+    .cost-badge { font-size: 13px; font-weight: 800; color: var(--cor-destaque); background: var(--cor-secundaria); padding: 6px 12px; border-radius: 8px; }
+    .btn-claim { background: var(--cor-primaria); color: var(--cor-texto-header); border: 1px solid rgba(0,0,0,0.1); padding: 9px 18px; border-radius: 10px; font-size: 12px; font-weight: 700; cursor: pointer; }
+
+    .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; height: 68px; background: #ffffff; border-top: 1px solid var(--cor-borda); display: flex; justify-content: space-around; align-items: center; z-index: 50; max-width: 480px; margin: 0 auto; }
+    .nav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; text-decoration: none; color: var(--cor-subtexto); font-size: 11px; font-weight: 700; background: none; border: none; cursor: pointer; }
+    .nav-item svg { width: 22px; height: 22px; }
+    .nav-item.active { color: var(--cor-destaque); }
+
+    .ios-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 999; }
+    .ios-sheet { position: fixed; bottom: 0; left: 0; right: 0; background: #ffffff; border-radius: 24px 24px 0 0; padding: 26px 20px 32px; max-width: 440px; margin: 0 auto; z-index: 1000; transform: translateY(100%); transition: transform 0.3s ease-out; }
+    .ios-sheet.active { transform: translateY(0); }
+    .ios-step { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px; }
+    .ios-step-num { background: #f1f5f9; color: #1c1917; font-weight: 800; font-size: 12px; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+  </style>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../../js/api.js"></script>
+</head>
+<body>
+
+  <header class="top-header" id="pwa-header">
+    <div class="clean-logo-wrap">
+      <img class="dinamico-logo" src="" alt="Logo" style="display:none;" id="logo-img-header">
+    </div>
+    <div class="header-text-group">
+      <div class="header-title-clean dinamico-nome" id="header-loja-nome">Carregando...</div>
+      <div class="header-sub-clean" id="header-loja-sub">Clube de Vantagens & Ofertas</div>
+    </div>
+  </header>
+
+  <div class="container-app-shield">
+    <div class="floating-stack-area">
+      <button id="btn-install-action" class="btn-pill-floating" type="button" onclick="acionarInstalacao()">
+        Instalar aplicativo no celular
+      </button>
+
+      <button id="btn-push-action" class="btn-pill-floating btn-push-floating" type="button" onclick="ativarPush()">
+        Receber avisos de promoções
+      </button>
+
+      <div id="alerta-vincular" class="cpf-floating-card">
+        <div class="cpf-floating-title">
+          Pontos salvos no celular. Vincule seu CPF para não perder seu saldo caso troque de aparelho.
+        </div>
+        <button class="cpf-floating-action" onclick="vincularCpfModal()">Vincular meu CPF agora</button>
+      </div>
+    </div>
+
+    <div class="section-spacer-top" id="section-spacer"></div>
+
+    <div id="view-promos" class="tab-view active">
+      <h2 class="headline-bar-fixed">Ofertas da Loja</h2>
+      <div id="lista-promos">Carregando ofertas...</div>
+    </div>
+
+    <div id="view-fidelidade" class="tab-view">
+      <div class="points-hub-card">
+        <div class="points-total" id="user-pontos">0 <span>pts</span></div>
+        <div class="points-label-sub">Saldo Disponível</div>
+
+        <button class="btn-scan-trigger" onclick="iniciarScanner()" id="btn-scan">
+          Escanear QR Code da Nota Fiscal
+        </button>
+
+        <div id="reader-container">
+          <div id="reader"></div>
+          <button style="margin-top:12px; width:100%; padding:10px; background:#fff; border:1px solid var(--cor-borda); border-radius:10px; font-weight:700;" onclick="pararScanner()">Cancelar Leitura</button>
+        </div>
+      </div>
+
+      <h2 class="headline-bar-fixed">Catálogo de Resgate</h2>
+      <div id="lista-premios">Carregando prêmios...</div>
+    </div>
+  </div>
+
+  <nav class="bottom-nav">
+    <button class="nav-item active" id="nav-btn-promos" onclick="navegarAba('view-promos', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+      Ofertas
+    </button>
+    <button class="nav-item" id="nav-btn-fidelidade" onclick="navegarAba('view-fidelidade', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 12 20 22 4 22 4 12"></polyline><rect x="2" y="7" width="20" height="5"></rect><line x1="12" y1="22" x2="12" y2="7"></line></svg>
+      Fidelidade
+    </button>
+  </nav>
+
+  <div class="ios-overlay" id="iosOverlay" onclick="fecharModalIos()"></div>
+  <div class="ios-sheet" id="iosSheet">
+    <h3 style="font-size:16px; font-weight:800; text-align:center; margin-bottom:4px;">Instalar no iPhone</h3>
+    <p style="font-size:12px; color:var(--cor-subtexto); text-align:center; margin-bottom:20px;">Siga os 2 passos abaixo no Safari:</p>
+    <div class="ios-step">
+      <div class="ios-step-num">1</div>
+      <div style="font-size:13px; color:#1c1917; line-height:1.4;">Toque no ícone de <strong>Compartilhar</strong> na barra inferior.</div>
+    </div>
+    <div class="ios-step">
+      <div class="ios-step-num">2</div>
+      <div style="font-size:13px; color:#1c1917; line-height:1.4;">Selecione <strong>Adicionar à Tela de Início</strong>.</div>
+    </div>
+    <button style="width:100%; padding:13px; background:#1c1917; color:#fff; border:none; border-radius:12px; font-weight:700; margin-top:8px; cursor:pointer;" onclick="fecharModalIos()">Entendido</button>
+  </div>
+
+  <script>
+    const COMERCIO_SLUG = "singellobrigadeiro";
+    const VAPID_KEY = "BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U";
+
+    let MEU_DEVICE_ID = localStorage.getItem('bomfregues_device_id');
+    if (!MEU_DEVICE_ID) {
+      MEU_DEVICE_ID = 'dev_' + Math.random().toString(36).substring(2, 11) + Date.now().toString(36);
+      localStorage.setItem('bomfregues_device_id', MEU_DEVICE_ID);
+    }
+
+    const FOTO_PADRAO = "https://images.unsplash.com/photo-1517256064527-09c73fc73e38?w=500&q=80";
+    let deferredPrompt = null;
+    let usuarioTemCpfVinculado = false;
+    let html5QrcodeScanner = null;
+
+    const isIos = () => /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
+    const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('../../sw.js', { scope: './' }).catch(() => {});
+    }
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      atualizarCamadaInterface();
+    });
+
+    window.addEventListener('appinstalled', () => {
+      deferredPrompt = null;
+      atualizarCamadaInterface();
+    });
+
+    function atualizarCamadaInterface() {
+      const btnInstall = document.getElementById('btn-install-action');
+      const btnPush = document.getElementById('btn-push-action');
+      const alertaCpf = document.getElementById('alerta-vincular');
+      const spacer = document.getElementById('section-spacer');
+
+      if (!btnInstall || !btnPush) return;
+      btnInstall.style.display = isStandalone() ? 'none' : 'flex';
+
+      if ("Notification" in window && Notification.permission === "granted") {
+        btnPush.style.display = 'none';
+      } else {
+        btnPush.style.display = 'flex';
+      }
+
+      const algumCard = (btnInstall.style.display === 'flex') || (btnPush.style.display === 'flex') || (alertaCpf && alertaCpf.style.display === 'flex');
+      if (spacer) spacer.style.height = algumCard ? '14px' : '36px';
+    }
+
+    async function acionarInstalacao() {
+      if (isIos()) {
+        document.getElementById('iosOverlay').style.display = 'block';
+        setTimeout(() => document.getElementById('iosSheet').classList.add('active'), 10);
+        return;
+      }
+
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === 'accepted') {
+          deferredPrompt = null;
+          document.getElementById('btn-install-action').style.display = 'none';
+          atualizarCamadaInterface();
+        }
+      } else {
+        alert("Para instalar:\nToque no menu do navegador (3 pontinhos) e selecione 'Instalar aplicativo' ou 'Adicionar à tela inicial'.");
+      }
+    }
+
+    function fecharModalIos() {
+      document.getElementById('iosSheet').classList.remove('active');
+      setTimeout(() => document.getElementById('iosOverlay').style.display = 'none', 300);
+    }
+
+    // CONVERSÃO CORRETA DA CHAVE VAPID PARA REGISTRO NATIVO
+    function urlBase64ToUint8Array(base64String) {
+      const padding = '='.repeat((4 - base64String.length % 4) % 4);
+      const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+      const rawData = window.atob(base64);
+      const outputArray = new Uint8Array(rawData.length);
+      for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+      }
+      return outputArray;
+    }
+
+    // GERAÇÃO DE ÍCONE DO IOS COM LOGO PROPORCIONAL E RESPIRO ADEQUADO
+    function gerarIconeCustomizado(logoUrl, corFundo) {
+      return new Promise((resolve) => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 512;
+        const ctx = canvas.getContext('2d');
+
+        ctx.fillStyle = corFundo || '#1c1917';
+        ctx.fillRect(0, 0, 512, 512);
+
+        if (!logoUrl) return resolve(canvas.toDataURL('image/png'));
+
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => {
+          // 120px de padding garante que o logo fique perfeitamente centralizado e proporcional
+          const padding = 120;
+          const maxW = 512 - (padding * 2);
+          const maxH = 512 - (padding * 2);
+
+          let drawW = img.width;
+          let drawH = img.height;
+          const ratio = Math.min(maxW / drawW, maxH / drawH);
+          drawW = drawW * ratio;
+          drawH = drawH * ratio;
+
+          const posX = (512 - drawW) / 2;
+          const posY = (512 - drawH) / 2;
+
+          ctx.drawImage(img, posX, posY, drawW, drawH);
+          resolve(canvas.toDataURL('image/png'));
+        };
+        img.onerror = () => resolve(canvas.toDataURL('image/png'));
+        img.src = logoUrl;
+      });
+    }
+
+    // ATIVAÇÃO REAL DE NOTIFICAÇÃO PUSH COM VAPID SUBSCRIPTION
+    async function ativarPush() {
+      const btn = document.getElementById('btn-push-action');
+      if (btn) { btn.innerText = "Ativando..."; btn.disabled = true; }
+
+      try {
+        if (!("Notification" in window)) throw new Error("Seu dispositivo não suporta notificações web.");
+        if (isIos() && !isStandalone()) throw new Error("No iPhone, adicione à Tela de Início primeiro.");
+
+        const perm = await Notification.requestPermission();
+        if (perm !== "granted") throw new Error("Permissão de notificação negada.");
+
+        if ('serviceWorker' in navigator) {
+          const reg = await navigator.serviceWorker.ready;
+          
+          let sub = await reg.pushManager.getSubscription();
+          if (!sub) {
+            // Cria a inscrição nativa no serviço de push do navegador
+            sub = await reg.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: urlBase64ToUint8Array(VAPID_KEY)
+            });
+          }
+
+          if (sub && typeof Api !== 'undefined' && Api.salvarInscricaoPush) {
+            await Api.salvarInscricaoPush(COMERCIO_SLUG, MEU_DEVICE_ID, sub.toJSON());
+          }
+        }
+
+        alert("✅ Notificações ativadas com sucesso!");
+        if (btn) btn.style.display = 'none';
+      } catch (err) {
+        alert("Erro no Push: " + err.message);
+      } finally {
+        if (btn) { btn.innerText = "Receber avisos de promoções"; btn.disabled = false; }
+        atualizarCamadaInterface();
+      }
+    }
+
+    function calcularCorTextoContraste(hexColor) {
+      if (!hexColor) return '#ffffff';
+      let c = hexColor.replace('#', '');
+      if (c.length === 3) c = c.split('').map(char => char + char).join('');
+      const r = parseInt(c.substr(0, 2), 16) || 0;
+      const g = parseInt(c.substr(2, 2), 16) || 0;
+      const b = parseInt(c.substr(4, 2), 16) || 0;
+      const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+      return (yiq >= 170) ? '#0f172a' : '#ffffff';
+    }
+
+    async function carregarDadosLoja() {
+      try {
+        if (!supabaseClient) {
+          document.getElementById('header-loja-nome').innerText = COMERCIO_SLUG;
+          return;
+        }
+
+        const { data: loja } = await supabaseClient
+          .from('comercios')
+          .select('*')
+          .eq('slug', COMERCIO_SLUG)
+          .maybeSingle();
+
+        if (loja) {
+          document.title = loja.nome_fantasia || "Bom Freguês";
+          document.getElementById('header-loja-nome').innerText = loja.nome_fantasia || COMERCIO_SLUG;
+
+          if (loja.cor_primaria) {
+            const corFundo = loja.cor_primaria;
+            const corTexto = calcularCorTextoContraste(corFundo);
+            const corSubTexto = (corTexto === '#0f172a') ? '#57534e' : 'rgba(255,255,255,0.85)';
+            const bordaInferior = (corTexto === '#0f172a') ? '1px solid #e7e5e4' : 'none';
+
+            document.documentElement.style.setProperty('--cor-primaria', corFundo);
+            document.documentElement.style.setProperty('--cor-texto-header', corTexto);
+            document.documentElement.style.setProperty('--cor-subtexto-header', corSubTexto);
+            document.documentElement.style.setProperty('--borda-header', bordaInferior);
+
+            const pwaHeader = document.getElementById('pwa-header');
+            if (pwaHeader) {
+              pwaHeader.style.backgroundColor = corFundo;
+              pwaHeader.style.borderBottom = bordaInferior;
+            }
+          }
+
+          if (loja.cor_secundaria) document.documentElement.style.setProperty('--cor-secundaria', loja.cor_secundaria);
+          if (loja.cor_destaque) document.documentElement.style.setProperty('--cor-destaque', loja.cor_destaque);
+          if (loja.logo_url) {
+            const img = document.getElementById('logo-img-header');
+            img.src = loja.logo_url;
+            img.style.display = 'block';
+
+            const iconeApple = await gerarIconeCustomizado(loja.logo_url, loja.cor_primaria);
+            const tagApple = document.getElementById('apple-icon');
+            if (tagApple) tagApple.href = iconeApple;
+          }
+        }
+      } catch (e) {}
+    }
+
+    async function carregarOfertas() {
+      const box = document.getElementById('lista-promos');
+      try {
+        if (!supabaseClient) return;
+        const { data: promocoes } = await supabaseClient
+          .from('promocoes')
+          .select('*')
+          .eq('comercio_slug', COMERCIO_SLUG)
+          .order('criado_em', { ascending: false });
+
+        if (!promocoes || !promocoes.length) {
+          box.innerHTML = `<div class="showcase-card" style="padding:28px; text-align:center; font-size:13px; color:var(--cor-subtexto);">Nenhuma promoção ativa no momento.</div>`;
+          return;
+        }
+
+        box.innerHTML = promocoes.map(p => `
+          <div class="showcase-card">
+            <img class="showcase-media" src="${p.imagem_url || FOTO_PADRAO}" onerror="this.src='${FOTO_PADRAO}'">
+            <div class="showcase-info">
+              <span class="showcase-badge">Oferta</span>
+              <h4 class="showcase-title">${p.titulo}</h4>
+              <p class="showcase-desc">${p.descricao}</p>
+              <div style="font-size:11px; font-weight:700; color:var(--cor-destaque);">${p.validade}</div>
+            </div>
+          </div>
+        `).join('');
+      } catch (err) {
+        box.innerHTML = `<div class="showcase-card" style="padding:28px; text-align:center; font-size:13px; color:var(--cor-subtexto);">Nenhuma promoção ativa no momento.</div>`;
+      }
+    }
+
+    async function carregarPontos() {
+      try {
+        if (typeof Api !== 'undefined' && Api.obterPontos) {
+          const data = await Api.obterPontos(COMERCIO_SLUG, MEU_DEVICE_ID);
+          document.getElementById('user-pontos').innerHTML = `${data.pontos || 0} <span>pts</span>`;
+          if (data.cpf) {
+            usuarioTemCpfVinculado = true;
+            document.getElementById('alerta-vincular').style.display = 'none';
+          }
+        }
+      } catch (e) {}
+    }
+
+    async function carregarPremios() {
+      const box = document.getElementById('lista-premios');
+      try {
+        if (typeof Api !== 'undefined' && Api.listarPremios) {
+          const premios = await Api.listarPremios(COMERCIO_SLUG);
+          if (!premios || !premios.length) {
+            box.innerHTML = `<div class="showcase-card" style="padding:28px; text-align:center; font-size:13px; color:var(--cor-subtexto);">Nenhum prêmio cadastrado.</div>`;
+            return;
+          }
+
+          box.innerHTML = premios.map(p => `
+            <div class="showcase-card">
+              <img class="showcase-media" src="${p.imagem_url || FOTO_PADRAO}" onerror="this.src='${FOTO_PADRAO}'">
+              <div class="showcase-info">
+                <h4 class="showcase-title">${p.titulo}</h4>
+                <div class="showcase-footer">
+                  <span class="cost-badge">${p.pontos} pts</span>
+                  <button class="btn-claim" onclick="resgatarItem(${p.id}, '${p.titulo}')">Resgatar</button>
+                </div>
+              </div>
+            </div>
+          `).join('');
+        }
+      } catch (e) {}
+    }
+
+    function navegarAba(viewId, btn) {
+      document.querySelectorAll('.tab-view').forEach(v => v.classList.remove('active'));
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById(viewId).classList.add('active');
+
+      const alertaCpf = document.getElementById('alerta-vincular');
+      if (viewId === 'view-fidelidade' && !usuarioTemCpfVinculado) {
+        alertaCpf.style.display = 'flex';
+      } else {
+        alertaCpf.style.display = 'none';
+      }
+      atualizarCamadaInterface();
+    }
+
+    async function resgatarItem(id, titulo) {
+      if (!confirm(`Resgatar "${titulo}"?`)) return;
+      try {
+        const data = await Api.resgatarPremio(COMERCIO_SLUG, MEU_DEVICE_ID, id);
+        alert(`Resgate confirmado!\nSaldo: ${data.saldoFinal} pts.`);
+        document.getElementById('user-pontos').innerHTML = `${data.saldoFinal} <span>pts</span>`;
+      } catch (err) { alert("Erro: " + err.message); }
+    }
+
+    async function vincularCpfModal() {
+      const cpf = prompt("Digite seu CPF (11 números):");
+      if (!cpf) return;
+      const limpo = cpf.replace(/\D/g, '');
+      if (limpo.length !== 11) return alert("CPF inválido.");
+      try {
+        const data = await Api.vincularCpf(COMERCIO_SLUG, MEU_DEVICE_ID, limpo);
+        usuarioTemCpfVinculado = true;
+        document.getElementById('alerta-vincular').style.display = 'none';
+        atualizarCamadaInterface();
+        document.getElementById('user-pontos').innerHTML = `${data.pontos} <span>pts</span>`;
+        alert("CPF vinculado com sucesso!");
+      } catch (e) { alert("Erro: " + e.message); }
+    }
+
+    function iniciarScanner() {
+      document.getElementById('btn-scan').style.display = 'none';
+      document.getElementById('reader-container').style.display = 'block';
+
+      if (html5QrcodeScanner) { try { html5QrcodeScanner.clear(); } catch(e) {} }
+
+      html5QrcodeScanner = new Html5Qrcode("reader");
+      html5QrcodeScanner.start(
+        { facingMode: "user" },
+        { fps: 15, qrbox: { width: 220, height: 220 } },
+        (decodedText) => { pararScanner(); processarNota(decodedText); },
+        () => {}
+      ).catch(err => { alert("Erro na câmera: " + (err.message || err)); pararScanner(); });
+    }
+
+    function pararScanner() {
+      if (html5QrcodeScanner) {
+        html5QrcodeScanner.stop().then(() => {
+          document.getElementById('btn-scan').style.display = 'block';
+          document.getElementById('reader-container').style.display = 'none';
+        });
+      }
+    }
+
+    async function processarNota(urlNota) {
+      const btn = document.getElementById('btn-scan');
+      btn.innerText = "Validando cupom...";
+      btn.disabled = true;
+      try {
+        const data = await Api.processarNotaFiscal(COMERCIO_SLUG, MEU_DEVICE_ID, urlNota);
+        document.getElementById('user-pontos').innerHTML = `${data.novosPontos} <span>pts</span>`;
+        alert(`Cupom validado! +${data.pontosGanhos} pontos.`);
+      } catch (err) { alert("Erro: " + err.message); }
+      finally {
+        btn.innerText = "Escanear QR Code da Nota Fiscal";
+        btn.disabled = false;
+      }
+    }
+
+    carregarDadosLoja();
+    carregarOfertas();
+    carregarPontos();
+    carregarPremios();
+    atualizarCamadaInterface();
+  </script>
+</body>
+</html>
