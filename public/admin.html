@@ -422,13 +422,54 @@
       if (/^#[0-9A-Fa-f]{6}$/.test(val)) sincronizarCor(tipo, val);
     }
 
+    // Gera ícone perfeitamente centralizado com respiro para a tela inicial do Android
+    function gerarIconePwaComRespiro(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (e) => {
+          const img = new Image();
+          img.src = e.target.result;
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+
+            // Fundo transparente para preservar a forma
+            ctx.clearRect(0, 0, 512, 512);
+
+            // Respiro de 128px (proporção de 50% da tela) para o Android não cortar
+            const padding = 128;
+            const maxW = 512 - (padding * 2);
+            const maxH = 512 - (padding * 2);
+
+            let drawW = img.width;
+            let drawH = img.height;
+            const ratio = Math.min(maxW / drawW, maxH / drawH);
+            drawW = drawW * ratio;
+            drawH = drawH * ratio;
+
+            const posX = (512 - drawW) / 2;
+            const posY = (512 - drawH) / 2;
+
+            ctx.drawImage(img, posX, posY, drawW, drawH);
+            resolve(canvas.toDataURL('image/png'));
+          };
+          img.onerror = reject;
+        };
+        reader.onerror = reject;
+      });
+    }
+
     async function processarLogo(e) {
       const file = e.target.files[0];
       if (file) {
-        logoB64 = await comprimirImagemParaBase64(file, 600);
+        // Redimensiona com a margem correta para o ícone
+        logoB64 = await gerarIconePwaComRespiro(file);
         document.getElementById('mock-logo-wrap').innerHTML = `<img src="${logoB64}">`;
         document.getElementById('thumb-logo-box').innerHTML = `<img src="${logoB64}">`;
-        document.getElementById('logo-status-label').innerText = `${file.name} pronto para salvar.`;
+        document.getElementById('logo-status-label').innerText = `${file.name} ajustado com respiro.`;
       }
     }
 
