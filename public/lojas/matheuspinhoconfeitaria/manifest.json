@@ -1,0 +1,31 @@
+{
+  "name": "Matheus Pinho Confeitaria",
+  "short_name": "Matheus Pinh",
+  "id": "https://bomfregues.github.io/public/lojas/matheuspinhoconfeitaria/",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "icons": [
+    {
+      "src": "https://uskfiencjaqqlhglpuqt.supabase.co/storage/v1/object/public/public-uploads/logos/loja_1789432369617.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://uskfiencjaqqlhglpuqt.supabase.co/storage/v1/object/public/public-uploads/logos/loja_1789432369617.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://uskfiencjaqqlhglpuqt.supabase.co/storage/v1/object/public/public-uploads/logos/loja_1789432369617.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
