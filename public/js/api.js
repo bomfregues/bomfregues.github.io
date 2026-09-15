@@ -158,6 +158,18 @@ const Api = {
     return data;
   },
 
+  async gerarQrPontuacao(slug) {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${BASE_FUNCTIONS_URL}/fidelidade`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ acao: "gerar_qr_pontuacao", slug })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Erro ao gerar QR Code de pontuação.");
+    return data;
+  },
+
   async deletarPremio(slug, senha, id) {
     const headers = await getAuthHeaders();
     const res = await fetch(`${BASE_FUNCTIONS_URL}/fidelidade`, {

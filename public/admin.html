@@ -279,6 +279,17 @@
     </section>
 
     <section id="tab-fidelidade" class="tab-panel">
+      <div class="card">
+        <div class="card-title">Pontuar Cliente</div>
+        <div class="card-subtitle">Mostre este QR Code no balcão. Cada código concede 100 pontos uma única vez.</div>
+        <div class="share-row">
+          <div class="qr-box"><div id="qrcode-pontuacao-render"></div></div>
+          <div class="share-info">
+            <div class="form-help-text" id="qrcode-pontuacao-status">Gerando QR Code seguro...</div>
+            <button type="button" class="btn-submit" id="btn-gerar-qrcode-pontuacao" style="margin-top:12px; width:auto; padding:8px 14px;" onclick="gerarQrPontuacaoAdmin()">Gerar novo QR Code</button>
+          </div>
+        </div>
+      </div>
       <div class="editor-grid">
         <div class="card">
           <div class="card-title">Novo Item de Recompensa</div>
@@ -381,6 +392,34 @@
       new QRCode(document.getElementById('qrcode-render'), { text: pwaClienteUrl, width: 120, height: 120, colorDark: "#1c1917", colorLight: "#ffffff" });
       carregarPromocoes();
       carregarPremios();
+      gerarQrPontuacaoAdmin();
+    }
+
+    async function gerarQrPontuacaoAdmin() {
+      const box = document.getElementById('qrcode-pontuacao-render');
+      const status = document.getElementById('qrcode-pontuacao-status');
+      const btn = document.getElementById('btn-gerar-qrcode-pontuacao');
+      if (!box || !status || !lojaAtual?.slug) return;
+
+      btn.disabled = true;
+      status.innerText = 'Gerando QR Code seguro...';
+      try {
+        const dados = await Api.gerarQrPontuacao(lojaAtual.slug);
+        box.innerHTML = '';
+        new QRCode(box, {
+          text: dados.qr_text,
+          width: 180,
+          height: 180,
+          colorDark: '#1c1917',
+          colorLight: '#ffffff',
+          correctLevel: QRCode.CorrectLevel.M
+        });
+        status.innerText = 'QR Code ativo. Depois de usado, ele deixa de funcionar.';
+      } catch (err) {
+        status.innerText = `Erro: ${err.message}`;
+      } finally {
+        btn.disabled = false;
+      }
     }
 
     function carregarModoCriacao() {
