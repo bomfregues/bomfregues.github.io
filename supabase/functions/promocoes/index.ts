@@ -99,7 +99,8 @@ Deno.serve(async (req) => {
           slug,
           titulo,
           descricao: `${descricao} (${validade})`,
-          app_url
+          app_url,
+          imagem_url
         })
       });
       if (!pushResponse.ok) {

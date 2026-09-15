@@ -19,8 +19,9 @@ self.addEventListener('push', function(event) {
   const title = data.title || 'Novidade na Loja!';
   const options = {
     body: data.body || 'Confira as novas ofertas disponíveis no app.',
-    icon: data.icon || '/public/img/icon-192.png',
-    badge: '/public/img/icon-192.png',
+    image: data.image || undefined,
+    icon: data.icon || data.badge || '/public/img/background.png',
+    badge: data.badge || data.icon || '/public/img/background.png',
     vibrate: [100, 50, 100],
     data: {
       url: data.url || '/'

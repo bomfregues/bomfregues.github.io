@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
     if (!supabaseUrl || !serviceRoleKey || !anonKey) throw new Error("Configuração do Supabase incompleta.");
     if (!vapidPublicKey || !vapidPrivateKey || !vapidSubject) throw new Error("Configuração VAPID incompleta.");
 
-    const { slug, titulo, descricao, app_url } = await req.json();
+    const { slug, titulo, descricao, app_url, imagem_url } = await req.json();
     const slugNormalizado = String(slug || "").toLowerCase().trim();
     if (!/^[a-z0-9][a-z0-9-]{2,62}$/.test(slugNormalizado)) throw new Error("Slug inválido.");
 
@@ -50,6 +50,15 @@ Deno.serve(async (req) => {
     await requireOwner(req, slugNormalizado, supabase);
 
     webpush.setVapidDetails(vapidSubject, vapidPublicKey, vapidPrivateKey);
+
+    const { data: comercio, error: comercioError } = await supabase
+      .from("comercios")
+      .select("logo_url")
+      .eq("slug", slugNormalizado)
+      .maybeSingle();
+    if (comercioError) throw comercioError;
+
+    const iconUrl = comercio?.logo_url || "https://bomfregues.github.io/public/img/background.png";
 
     const { data: subs, error } = await supabase
       .from("push_subscriptions")
@@ -66,6 +75,9 @@ Deno.serve(async (req) => {
     const payload = JSON.stringify({
       title: titulo || "Nova Promoção!",
       body: descricao || "Confira a novidade no clube.",
+      image: imagem_url || undefined,
+      icon: iconUrl,
+      badge: iconUrl,
       url: app_url || `https://bomfregues.github.io/public/lojas/${slugNormalizado}/`,
     });
 
