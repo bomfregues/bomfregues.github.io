@@ -9,8 +9,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-
   <style>
     :root {
       --primary: #121212;
@@ -1009,8 +1007,6 @@
     }
   </style>
 
-  <script src="js/api.js"></script>
-  <script src="js/theme.js"></script>
 </head>
 <body>
 
@@ -1402,13 +1398,6 @@
   </footer>
 
   <script>
-    let cores = {
-      cor1: '#121212',
-      cor2: '#fef3c7',
-      cor3: '#ea580c'
-    };
-    let logoB64 = null;
-
     // FAQ Accordion
     function toggleFaq(el) {
       el.parentElement.classList.toggle('active');
@@ -1581,7 +1570,6 @@
           nome_fantasia: nome,
           slug: slug,
           cnpj: cnpj,
-          senha_admin: senha,
           cor_primaria: cores.cor1,
           cor_secundaria: cores.cor2,
           cor_destaque: cores.cor3,

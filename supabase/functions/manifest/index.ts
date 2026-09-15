@@ -17,7 +17,8 @@ serve(async (req) => {
     const slug = url.searchParams.get("loja") || "singello";
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    if (!supabaseUrl || !supabaseKey) throw new Error("Configuração do Supabase incompleta.");
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const { data: loja } = await supabase

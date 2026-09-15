@@ -10,6 +10,16 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
+    const requireOwner = async (comercioId: string) => {
+      const authorization = req.headers.get('Authorization');
+      if (!authorization?.startsWith('Bearer ')) throw new Error('Autenticação obrigatória.');
+      const authClient = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_ANON_KEY') ?? '', { global: { headers: { Authorization: authorization } } });
+      const { data: authData, error: authError } = await authClient.auth.getUser();
+      if (authError || !authData.user) throw new Error('Sessão inválida.');
+      const { data: owner } = await supabase.from('comercios').select('id').eq('id', comercioId).eq('user_id', authData.user.id).single();
+      if (!owner) throw new Error('Sem permissão para esta loja.');
+    };
+
     const url = new URL(req.url);
     const method = req.method;
 
@@ -91,7 +101,7 @@ Deno.serve(async (req) => {
 
       // CRIAR PRÊMIO
       if (body.acao === 'criar_premio') {
-        if (body.senha !== comercio.senha_admin) throw new Error("Senha incorreta.");
+        await requireOwner(comercio.id);
 
         let imagem_url = 'https://images.unsplash.com/photo-1517256064527-09c73fc73e38?w=150&q=80';
         if (body.imagem_base64 && body.imagem_base64.startsWith('data:image')) {
@@ -272,11 +282,12 @@ Deno.serve(async (req) => {
       const body = await req.json();
       const { data: comercio } = await supabase
         .from('comercios')
-        .select('id, senha_admin')
+        .select('id')
         .eq('slug', body.slug.toLowerCase())
         .single();
 
-      if (!comercio || comercio.senha_admin !== body.senha) throw new Error("Senha incorreta.");
+      if (!comercio) throw new Error("Comércio não encontrado.");
+      await requireOwner(comercio.id);
 
       const { error } = await supabase
         .from('premios')

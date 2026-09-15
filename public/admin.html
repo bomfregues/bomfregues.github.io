@@ -13,7 +13,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
   <script src="js/api.js"></script>
-  <script src="js/theme.js"></script>
 
   <style>
     :root {
@@ -562,7 +561,6 @@
       try {
         await Api.criarPromocao({
           slug: lojaAtual.slug,
-          senha: 'auth_managed',
           titulo: document.getElementById('promo-titulo').value.trim(),
           descricao: document.getElementById('promo-desc').value.trim(),
           validade: document.getElementById('promo-validade').value.trim(),
@@ -610,7 +608,7 @@
 
     async function deletarPromo(id) {
       if (!confirm("Deseja excluir esta promoção?")) return;
-      await Api.deletarPromocao(lojaAtual.slug, 'auth_managed', id);
+      await Api.deletarPromocao(lojaAtual.slug, null, id);
       document.getElementById(`promo-${id}`)?.remove();
     }
 
@@ -627,7 +625,6 @@
       e.preventDefault();
       await Api.criarPremio({
         slug: lojaAtual.slug,
-        senha: 'auth_managed',
         titulo: document.getElementById('premio-titulo').value.trim(),
         pontos: parseInt(document.getElementById('premio-pontos').value),
         imagem_base64: premioB64
@@ -663,7 +660,7 @@
 
     async function deletarPremio(id) {
       if (!confirm("Excluir recompensa?")) return;
-      await Api.deletarPremio(lojaAtual.slug, 'auth_managed', id);
+      await Api.deletarPremio(lojaAtual.slug, null, id);
       document.getElementById(`premio-${id}`)?.remove();
     }
 

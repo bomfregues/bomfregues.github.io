@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
 
@@ -8,126 +7,96 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-// Chaves VAPID oficiais
-const VAPID_PUBLIC_KEY = Deno.env.get("VAPID_PUBLIC_KEY") ?? "BPfvsPqjD8sW50kBp7nwkrQuzks26BdfuTy_Je5Rd-pafD_dHWt3NjRb0FcvTgf1ak6FUAZmbzwfC322LgU7oLc";
-const VAPID_PRIVATE_KEY = Deno.env.get("VAPID_PRIVATE_KEY") ?? "";
+const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+const vapidPublicKey = Deno.env.get("VAPID_PUBLIC_KEY") ?? "";
+const vapidPrivateKey = Deno.env.get("VAPID_PRIVATE_KEY") ?? "";
+const vapidSubject = Deno.env.get("VAPID_SUBJECT") ?? "";
 
-// A Apple EXIGE uma URL HTTPS válida e acessível como subject do VAPID
-const VAPID_SUBJECT = "https://bomfregues.github.io";
+async function requireOwner(req: Request, slug: string, supabase: ReturnType<typeof createClient>) {
+  const authorization = req.headers.get("Authorization");
+  if (!authorization?.startsWith("Bearer ")) throw new Error("Autenticação obrigatória.");
 
-if (VAPID_PRIVATE_KEY) {
-  webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+  const authClient = createClient(supabaseUrl, anonKey, {
+    global: { headers: { Authorization: authorization } },
+  });
+  const { data: authData, error: authError } = await authClient.auth.getUser();
+  if (authError || !authData.user) throw new Error("Sessão inválida.");
+
+  const { data: owner, error } = await supabase
+    .from("comercios")
+    .select("id")
+    .eq("slug", slug)
+    .eq("user_id", authData.user.id)
+    .maybeSingle();
+
+  if (error || !owner) throw new Error("Sem permissão para esta loja.");
 }
 
-serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
-  }
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const bodyText = await req.text();
-    console.log("--> Recebida requisição de disparo:", bodyText);
+    if (req.method !== "POST") throw new Error("Método não permitido.");
+    if (!supabaseUrl || !serviceRoleKey || !anonKey) throw new Error("Configuração do Supabase incompleta.");
+    if (!vapidPublicKey || !vapidPrivateKey || !vapidSubject) throw new Error("Configuração VAPID incompleta.");
 
-    if (!bodyText) {
-      throw new Error("Corpo da requisição vazio.");
-    }
+    const { slug, titulo, descricao, app_url } = await req.json();
+    const slugNormalizado = String(slug || "").toLowerCase().trim();
+    if (!/^[a-z0-9][a-z0-9-]{2,62}$/.test(slugNormalizado)) throw new Error("Slug inválido.");
 
-    const { slug, titulo, descricao, app_url } = JSON.parse(bodyText);
-    if (!slug) throw new Error("Slug da loja é obrigatório.");
+    const supabase = createClient(supabaseUrl, serviceRoleKey);
+    await requireOwner(req, slugNormalizado, supabase);
 
-    if (!VAPID_PRIVATE_KEY) {
-      console.error("ERRO: VAPID_PRIVATE_KEY não está configurada nos Secrets do Supabase!");
-      throw new Error("Chave VAPID privada não configurada no servidor.");
-    }
+    webpush.setVapidDetails(vapidSubject, vapidPublicKey, vapidPrivateKey);
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_ANON_KEY") ?? "";
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
-    // 1. Busca todos os aparelhos inscritos da loja
     const { data: subs, error } = await supabase
       .from("push_subscriptions")
-      .select("id, device_id, subscription")
-      .eq("comercio_slug", slug);
+      .select("id, subscription")
+      .eq("comercio_slug", slugNormalizado);
 
     if (error) throw error;
-
-    console.log(`--> Encontrados ${subs?.length || 0} aparelhos para a loja: ${slug}`);
-
-    if (!subs || subs.length === 0) {
-      return new Response(JSON.stringify({ 
-        sucesso: false, 
-        mensagem: "Nenhum aparelho inscrito para esta loja.",
-        total: 0 
-      }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
+    if (!subs?.length) {
+      return new Response(JSON.stringify({ sucesso: false, total: 0, sucessos: 0, falhas: 0 }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const payload = JSON.stringify({
       title: titulo || "Nova Promoção!",
       body: descricao || "Confira a novidade no clube.",
-      url: app_url || `https://bomfregues.github.io/public/lojas/${slug}/`
+      url: app_url || `https://bomfregues.github.io/public/lojas/${slugNormalizado}/`,
     });
-
-    const pushOptions = {
-      TTL: 60 * 60 * 24, // 24 horas de validade
-      urgency: "high" as const
-    };
 
     let sucessos = 0;
     let falhas = 0;
-
-    // 2. Dispara individualmente para cada aparelho
-    for (const reg of subs) {
+    for (const registro of subs) {
       try {
-        let subObj = reg.subscription;
-        if (typeof subObj === "string") {
-          subObj = JSON.parse(subObj);
-        }
+        const subscription = typeof registro.subscription === "string"
+          ? JSON.parse(registro.subscription)
+          : registro.subscription;
+        if (!subscription?.endpoint || !subscription?.keys) continue;
 
-        if (!subObj || !subObj.endpoint || !subObj.keys) {
-          console.warn(`[ID: ${reg.id}] Inscrição malformatada, ignorando...`);
-          continue;
-        }
-
-        console.log(`--> Enviando para endpoint: ${subObj.endpoint.substring(0, 45)}...`);
-
-        await webpush.sendNotification(subObj, payload, pushOptions);
-
+        await webpush.sendNotification(subscription, payload, { TTL: 60 * 60 * 24, urgency: "high" });
         sucessos++;
-        console.log(`--> Notificação entregue com sucesso para o ID: ${reg.id}`);
-      } catch (err: any) {
+      } catch (error) {
         falhas++;
-        console.error(`--> Erro detalhado ao enviar para ID ${reg.id}:`, {
-          status: err.statusCode,
-          headers: err.headers,
-          body: err.body,
-          message: err.message
-        });
-
-        // Se o token expirou (404/410) ou foi invalidado pela Apple/Google (400 Bad Request / 401 Unauthorized por chave antiga)
-        if (err.statusCode === 410 || err.statusCode === 404 || err.statusCode === 400 || err.statusCode === 401) {
-          console.log(`--> Removendo inscrição inválida/expirada do banco: ID ${reg.id} (Status ${err.statusCode})`);
-          await supabase.from("push_subscriptions").delete().eq("id", reg.id);
+        const statusCode = (error as { statusCode?: number }).statusCode;
+        if ([400, 401, 404, 410].includes(statusCode ?? 0)) {
+          await supabase.from("push_subscriptions").delete().eq("id", registro.id);
         }
       }
     }
 
-    return new Response(JSON.stringify({
-      sucesso: true,
-      total_encontrados: subs.length,
-      sucessos,
-      falhas
-    }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" }
+    return new Response(JSON.stringify({ sucesso: true, total: subs.length, sucessos, falhas }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-
-  } catch (err: any) {
-    console.error("ERRO GERAL DISPARAR-PUSH:", err.message);
-    return new Response(JSON.stringify({ error: err.message }), {
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Erro ao disparar notificações.";
+    return new Response(JSON.stringify({ error: message }), {
       status: 400,
-      headers: { ...corsHeaders, "Content-Type": "application/json" }
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });

@@ -24,16 +24,6 @@ body {
   padding-bottom: 90px;
 }
 
-#onesignal-slidedown-container, 
-.onesignal-slidedown-container, 
-#onesignal-bell-container, 
-.onesignal-bell-container {
-  display: none !important;
-  visibility: hidden !important;
-  opacity: 0 !important;
-  pointer-events: none !important;
-}
-
 .top-header {
   background: linear-gradient(180deg, var(--cor-primaria) 0%, #0d0501 100%);
   padding: 24px 20px 30px 20px;

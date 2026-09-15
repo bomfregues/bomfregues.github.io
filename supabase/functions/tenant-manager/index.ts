@@ -11,7 +11,16 @@ const GITHUB_TOKEN = Deno.env.get("GITHUB_TOKEN") ?? "";
 const GITHUB_OWNER = Deno.env.get("GITHUB_OWNER") ?? "bomfregues";
 const GITHUB_REPO = Deno.env.get("GITHUB_REPO") ?? "bomfregues";
 const GITHUB_BRANCH = "main";
-const VAPID_PUBLIC_KEY = Deno.env.get("VAPID_PUBLIC_KEY") ?? "BPfvsPqjD8sW50kBp7nwkrQuzks26BdfuTy_Je5Rd-pafD_dHWt3NjRb0FcvTgf1ak6FUAZmbzwfC322LgU7oLc";
+const VAPID_PUBLIC_KEY = Deno.env.get("VAPID_PUBLIC_KEY") ?? "";
+
+async function requireUser(req: Request, supabaseUrl: string, anonKey: string) {
+  const authorization = req.headers.get("Authorization");
+  if (!authorization?.startsWith("Bearer ")) throw new Error("Autenticação obrigatória.");
+  const client = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authorization } } });
+  const { data, error } = await client.auth.getUser();
+  if (error || !data.user) throw new Error("Sessão inválida.");
+  return data.user;
+}
 
 async function salvarArquivoNoGitHub(caminho: string, conteudoTexto: string, commitMsg: string) {
   if (!GITHUB_TOKEN) {
@@ -95,17 +104,26 @@ function gerarManifestoLoja(slug: string, nome: string, cor: string, logoUrl: st
 }
 
 function gerarHtmlLoja(slug: string, nomeLoja: string, corFundo: string, logoUrl: string) {
+  const escapeHtml = (value: string) => {
+    const entities: Record<string, string> = {
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    };
+    return value.replace(/[&<>"']/g, (char) => entities[char] ?? char);
+  };
+  const nomeSeguro = escapeHtml(nomeLoja || "Bom Freguês");
+  const corSegura = /^#[0-9a-fA-F]{6}$/.test(corFundo) ? corFundo : "#1c1917";
+
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>${nomeLoja || "Bom Freguês"}</title>
+  <title>${nomeSeguro}</title>
 
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="theme-color" content="${corFundo || "#ffffff"}">
+  <meta name="theme-color" content="${corSegura}">
 
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" id="apple-icon" href="../../img/icon-192.png">
@@ -122,7 +140,7 @@ function gerarHtmlLoja(slug: string, nomeLoja: string, corFundo: string, logoUrl
       --cor-texto-header: #ffffff;
       --cor-subtexto-header: rgba(255,255,255,0.85);
       --borda-header: none;
-      --cor-primaria: ${corFundo || "#1c1917"};
+      --cor-primaria: ${corSegura};
       --cor-secundaria: #ffffff;
       --cor-destaque: #ea580c;
       --cor-fundo: #f8fafc;
@@ -305,8 +323,8 @@ function gerarHtmlLoja(slug: string, nomeLoja: string, corFundo: string, logoUrl
   </div>
 
   <script>
-    const COMERCIO_SLUG = "${slug}";
-    const VAPID_KEY = "${VAPID_PUBLIC_KEY}";
+    const COMERCIO_SLUG = ${JSON.stringify(slug)};
+    const VAPID_KEY = ${JSON.stringify(VAPID_PUBLIC_KEY)};
 
     let MEU_DEVICE_ID = localStorage.getItem('bomfregues_device_id');
     if (!MEU_DEVICE_ID) {
@@ -714,14 +732,16 @@ serve(async (req) => {
   try {
     const url = new URL(req.url);
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+    if (!supabaseUrl || !supabaseKey || !anonKey) throw new Error("Configuração do Supabase incompleta.");
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     if (req.method === "GET") {
       const slug = url.searchParams.get("slug") || "";
       const { data, error } = await supabase
         .from("comercios")
-        .select("*")
+        .select("id, slug, nome_fantasia, cnpj, cor_primaria, cor_secundaria, cor_destaque, logo_url, icone_pwa_url, user_id")
         .eq("slug", slug)
         .maybeSingle();
 
@@ -730,9 +750,19 @@ serve(async (req) => {
     }
 
     if (req.method === "POST" || req.method === "PUT") {
+      const user = await requireUser(req, supabaseUrl, anonKey);
       const payload = await req.json();
       const slug = (payload.slug || "").toLowerCase().trim();
-      if (!slug) throw new Error("Slug obrigatório.");
+      if (!/^[a-z0-9][a-z0-9-]{2,62}$/.test(slug)) throw new Error("Slug inválido.");
+
+      const { data: lojaExistente } = await supabase
+        .from("comercios")
+        .select("user_id")
+        .eq("slug", slug)
+        .maybeSingle();
+      if (lojaExistente && lojaExistente.user_id !== user.id) {
+        throw new Error("Este identificador já pertence a outro usuário.");
+      }
 
       const { data: loja, error } = await supabase
         .from("comercios")
@@ -745,8 +775,7 @@ serve(async (req) => {
           cor_destaque: payload.cor_destaque,
           logo_url: payload.logo_url,
           icone_pwa_url: payload.logo_url,
-          user_id: payload.user_id,
-          senha_admin: 'auth_managed'
+          user_id: user.id
         }, { onConflict: "slug" })
         .select()
         .single();

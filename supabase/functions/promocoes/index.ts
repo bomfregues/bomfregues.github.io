@@ -10,8 +10,15 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const ONESIGNAL_APP_ID = Deno.env.get('ONESIGNAL_APP_ID') ?? '';
-    const ONESIGNAL_REST_KEY = Deno.env.get('ONESIGNAL_REST_KEY') ?? '';
+    const requireOwner = async (slug: string) => {
+      const authorization = req.headers.get('Authorization');
+      if (!authorization?.startsWith('Bearer ')) throw new Error('Autenticação obrigatória.');
+      const authClient = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_ANON_KEY') ?? '', { global: { headers: { Authorization: authorization } } });
+      const { data: authData, error: authError } = await authClient.auth.getUser();
+      if (authError || !authData.user) throw new Error('Sessão inválida.');
+      const { data: owner } = await supabase.from('comercios').select('id').eq('slug', slug.toLowerCase()).eq('user_id', authData.user.id).single();
+      if (!owner) throw new Error('Sem permissão para esta loja.');
+    };
 
     const url = new URL(req.url);
 
@@ -42,10 +49,11 @@ Deno.serve(async (req) => {
 
     // 2. CRIAR PROMOÇÃO E DISPARAR PUSH SEGMENTADO
     if (req.method === 'POST') {
-      const { slug, senha, titulo, descricao, validade, imagem_base64, app_url } = await req.json();
-      if (!slug || !senha || !titulo || !descricao || !validade) {
+      const { slug, titulo, descricao, validade, imagem_base64, app_url } = await req.json();
+      if (!slug || !titulo || !descricao || !validade) {
         throw new Error("Campos incompletos.");
       }
+      await requireOwner(slug);
 
       const { data: comercio } = await supabase
         .from('comercios')
@@ -54,13 +62,6 @@ Deno.serve(async (req) => {
         .single();
 
       if (!comercio) throw new Error("Comércio não encontrado.");
-      if (comercio.senha_admin !== senha) {
-        return new Response(JSON.stringify({ error: 'Senha de administrador incorreta.' }), {
-          status: 401,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      }
-
       let imagem_url: string | null = null;
       if (imagem_base64 && imagem_base64.startsWith('data:image')) {
         const base64Data = imagem_base64.replace(/^data:image\/\w+;base64,/, '');
@@ -87,32 +88,22 @@ Deno.serve(async (req) => {
 
       if (error) throw error;
 
-      // Web Push Segmentado: entrega apenas para aparelhos com tag do comércio
-      if (ONESIGNAL_APP_ID && ONESIGNAL_REST_KEY) {
-        const urlDestino = app_url || `https://caio-vb.github.io/?loja=${slug}`;
-        const pushPayload: Record<string, unknown> = {
-          app_id: ONESIGNAL_APP_ID,
-          filters: [
-            { field: "tag", key: "comercio_slug", relation: "=", value: slug.toLowerCase() }
-          ],
-          headings: { en: `🔥 ${titulo}`, pt: `🔥 ${titulo}` },
-          contents: { en: `${descricao} (${validade})`, pt: `${descricao} (${validade})` },
-          url: urlDestino
-        };
-
-        if (imagem_url) {
-          pushPayload.big_picture = imagem_url;
-          pushPayload.chrome_web_image = imagem_url;
-        }
-
-        await fetch("https://api.onesignal.com/notifications", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json; charset=utf-8",
-            "Authorization": `Key ${ONESIGNAL_REST_KEY}`
-          },
-          body: JSON.stringify(pushPayload)
-        });
+      const authorization = req.headers.get('Authorization');
+      const pushResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/disparar-push`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authorization ? { Authorization: authorization } : {})
+        },
+        body: JSON.stringify({
+          slug,
+          titulo,
+          descricao: `${descricao} (${validade})`,
+          app_url
+        })
+      });
+      if (!pushResponse.ok) {
+        console.warn('Promoção criada, mas o disparo nativo falhou:', await pushResponse.text());
       }
 
       return new Response(JSON.stringify({ success: true, promocao: data }), {
@@ -122,20 +113,16 @@ Deno.serve(async (req) => {
 
     // 3. EXCLUIR PROMOÇÃO
     if (req.method === 'DELETE') {
-      const { id, senha, slug } = await req.json();
+      const { id, slug } = await req.json();
+      await requireOwner(slug);
 
       const { data: comercio } = await supabase
         .from('comercios')
-        .select('id, senha_admin')
+        .select('id')
         .eq('slug', slug.toLowerCase())
         .single();
 
-      if (!comercio || comercio.senha_admin !== senha) {
-        return new Response(JSON.stringify({ error: 'Senha incorreta.' }), {
-          status: 401,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      }
+      if (!comercio) throw new Error('Comércio não encontrado.');
 
       const { error } = await supabase
         .from('promocoes')
