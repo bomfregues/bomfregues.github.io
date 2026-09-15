@@ -322,7 +322,6 @@
     let logoB64 = null, promoB64 = null, premioB64 = null;
     const FOTO_FALLBACK = "https://images.unsplash.com/photo-1517256064527-09c73fc73e38?w=500&q=80";
 
-    // Cálculo exato de luminância YIQ para alternar texto entre preto e branco
     function calcularContrasteHeader(hexColor) {
       if (!hexColor) return '#ffffff';
       let c = hexColor.replace('#', '');
@@ -363,7 +362,6 @@
       }
       atualizarMockupNome(loja.nome_fantasia);
       
-      // URL canônica apontando para a pasta física dedicada da loja
       const basePath = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
       pwaClienteUrl = `${window.location.origin}${basePath}lojas/${loja.slug}/`;
 
@@ -395,7 +393,6 @@
         const mockHeader = document.getElementById('mock-header');
         mockHeader.style.backgroundColor = val;
 
-        // Transição e contraste dinâmico de texto
         const textColor = calcularContrasteHeader(val);
         const subColor = (textColor === '#0f172a') ? '#57534e' : 'rgba(255,255,255,0.85)';
         const borderBottom = (textColor === '#0f172a') ? '1px solid #e7e5e4' : 'none';
@@ -447,7 +444,7 @@
       if (cnpj.length !== 14) return alert("O CNPJ deve conter exatamente 14 dígitos.");
 
       btn.disabled = true;
-      btn.innerText = "Salvando alterações...";
+      btn.innerText = "Provisionando arquivos do PWA...";
 
       try {
         let logoFinalUrl = lojaAtual?.logo_url || '';
@@ -467,49 +464,28 @@
           }
         }
 
-        if (!lojaAtual || !lojaAtual.id) {
-          const slugReservado = sessionStorage.getItem('saas_pre_slug') || nome.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "-").replace(/-+/g, "-");
+        const slugTarget = lojaAtual?.slug || sessionStorage.getItem('saas_pre_slug') || nome.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "-").replace(/-+/g, "-");
 
-          const { data: novo, error: insErr } = await supabaseClient.from('comercios').insert([{
-            nome_fantasia: nome,
-            slug: slugReservado,
-            cnpj,
-            senha_admin: 'auth_managed',
-            cor_primaria: corHeader,
-            cor_secundaria: corSec,
-            cor_destaque: corDest,
-            logo_url: logoFinalUrl,
-            icone_pwa_url: logoFinalUrl,
-            user_id: userIdAtual
-          }]).select().single();
+        const payload = {
+          slug: slugTarget,
+          nome_fantasia: nome,
+          cnpj,
+          cor_primaria: corHeader,
+          cor_secundaria: corSec,
+          cor_destaque: corDest,
+          logo_url: logoFinalUrl,
+          user_id: userIdAtual
+        };
 
-          if (insErr) throw insErr;
-          lojaAtual = novo;
-          sessionStorage.removeItem('saas_pre_slug');
-          alert("✅ Aplicativo criado e publicado com sucesso!");
-          window.location.reload();
-        } else {
-          const { data: atualizado, error: updErr } = await supabaseClient
-            .from('comercios')
-            .update({
-              nome_fantasia: nome,
-              cnpj,
-              senha_admin: 'auth_managed',
-              cor_primaria: corHeader,
-              cor_secundaria: corSec,
-              cor_destaque: corDest,
-              logo_url: logoFinalUrl,
-              icone_pwa_url: logoFinalUrl
-            })
-            .eq('id', lojaAtual.id)
-            .select()
-            .single();
-
-          if (updErr) throw updErr;
-          lojaAtual = atualizado;
-          alert("✅ Alterações salvas com sucesso!");
-          window.location.reload();
+        // CHAMA A EDGE FUNCTION PARA GERAR OS ARQUIVOS E A PASTA NO GITHUB
+        const res = await Api.cadastrarTenant(payload);
+        if (res.loja) {
+          lojaAtual = res.loja;
         }
+
+        sessionStorage.removeItem('saas_pre_slug');
+        alert("✅ Aplicativo criado, pasta provisionada e publicado com sucesso!");
+        window.location.reload();
       } catch (err) {
         alert("Erro ao salvar: " + err.message);
       } finally {

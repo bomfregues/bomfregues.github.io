@@ -12,15 +12,15 @@ self.addEventListener('push', function(event) {
     try {
       data = event.data.json();
     } catch (e) {
-      data = { title: 'Nova Notificação!', body: event.data.text() };
+      data = { title: 'Nova Promoção!', body: event.data.text() };
     }
   }
 
-  const title = data.title || 'Novidade no Clube!';
+  const title = data.title || 'Novidade na Loja!';
   const options = {
     body: data.body || 'Confira as novas ofertas disponíveis no app.',
-    icon: data.icon || 'img/icon-192.png',
-    badge: 'img/icon-192.png',
+    icon: data.icon || '/public/img/icon-192.png',
+    badge: '/public/img/icon-192.png',
     vibrate: [100, 50, 100],
     data: {
       url: data.url || '/'

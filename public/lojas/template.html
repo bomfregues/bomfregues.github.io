@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Singello Brigadeiro</title>
+  <title>Bom Freguês</title>
 
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="theme-color" content="#1c1917">
+  <meta name="theme-color" content="#ffffff">
 
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="../../img/icon-192.png">
@@ -195,8 +195,10 @@
   </div>
 
   <script>
-    // Identificador fixo desta pasta física
-    const COMERCIO_SLUG = "singello";
+    // EXTRAÇÃO AUTOMÁTICA DA LOJA A PARTIR DA PASTA ONDE O ARQUIVO ESTÁ:
+    // Ex: Se a URL for /public/lojas/singello/ ou /public/lojas/singello/index.html -> COMERCIO_SLUG = "singello"
+    const segments = window.location.pathname.replace(/\/index\.html$/, '').replace(/\/+$/, '').split('/');
+    const COMERCIO_SLUG = segments[segments.length - 1];
 
     let MEU_DEVICE_ID = localStorage.getItem('bomfregues_device_id');
     if (!MEU_DEVICE_ID) {
@@ -212,7 +214,7 @@
     const isIos = () => /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
     const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 
-    // Registro do Service Worker apontando para o sw.js com escopo desta pasta
+    // Service Worker registrado no escopo relativo exato desta pasta física (./)
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('../../sw.js', { scope: './' }).catch(err => {
         console.warn("SW register err:", err);
