@@ -1,0 +1,31 @@
+{
+  "name": "Singello Brigadeiro",
+  "short_name": "Singello Bri",
+  "id": "https://bomfregues.github.io/public/lojas/singellobrigadeiro/",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "icons": [
+    {
+      "src": "https://uskfiencjaqqlhglpuqt.supabase.co/storage/v1/object/public/public-uploads/logos/loja_1789432066005.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://uskfiencjaqqlhglpuqt.supabase.co/storage/v1/object/public/public-uploads/logos/loja_1789432066005.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://uskfiencjaqqlhglpuqt.supabase.co/storage/v1/object/public/public-uploads/logos/loja_1789432066005.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
