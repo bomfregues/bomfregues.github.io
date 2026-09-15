@@ -79,8 +79,8 @@
 
     .mockup-sticky { position: sticky; top: 88px; width: 100%; display: flex; flex-direction: column; align-items: center; }
     .phone-frame { width: 100%; max-width: 320px; margin: 0 auto; background: #ffffff; border: 8px solid #1c1917; border-radius: 36px; overflow: hidden; box-shadow: 0 14px 30px -8px rgba(0,0,0,0.12); min-height: 440px; display: flex; flex-direction: column; }
-    .mockup-header { padding: 22px 16px 18px; display: flex; align-items: center; gap: 12px; background-color: #ffffff; color: #0f172a; transition: background-color 0.2s ease, color 0.2s ease, border 0.2s ease; }
-    .mockup-logo-free { width: 46px; height: 46px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: transparent !important; }
+    .mockup-header { padding: 24px 16px 30px; display: flex; align-items: center; gap: 12px; background-color: #ffffff; color: #0f172a; border-radius: 0 0 24px 24px; overflow: hidden; position: relative; z-index: 1; transition: background-color 0.2s ease, color 0.2s ease, border 0.2s ease; }
+    .mockup-logo-free { width: 64px; height: 64px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: transparent !important; }
     .mockup-logo-free img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
     .mockup-titles div:first-child { font-size: 14px; font-weight: 800; line-height: 1.2; color: inherit; transition: color 0.2s ease; }
     .mockup-titles div:last-child { font-size: 10px; margin-top: 2px; color: inherit; transition: color 0.2s ease, opacity 0.2s ease; }
@@ -337,7 +337,7 @@
     let corSec = '#ffffff';
     let corDest = '#b91c1c';
 
-    let logoB64 = null, promoB64 = null, premioB64 = null;
+    let logoB64 = null, iconePwaB64 = null, promoB64 = null, premioB64 = null;
     const FOTO_FALLBACK = "https://images.unsplash.com/photo-1517256064527-09c73fc73e38?w=500&q=80";
 
     function calcularContrasteHeader(hexColor) {
@@ -469,7 +469,7 @@
     }
 
     // Gera ícone perfeitamente centralizado com respiro para a tela inicial do Android
-    function gerarIconePwaComRespiro(file) {
+    function gerarIconePwaComRespiro(file, corFundo = null) {
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.readAsDataURL(file);
@@ -482,11 +482,15 @@
             canvas.height = 512;
             const ctx = canvas.getContext('2d');
 
-            // Fundo transparente para preservar a forma
-            ctx.clearRect(0, 0, 512, 512);
+            if (corFundo) {
+              ctx.fillStyle = corFundo;
+              ctx.fillRect(0, 0, 512, 512);
+            } else {
+              ctx.clearRect(0, 0, 512, 512);
+            }
 
             // Mantém o logo grande no cabeçalho e ainda deixa margem para ícones.
-            const padding = 48;
+            const padding = 24;
             const maxW = 512 - (padding * 2);
             const maxH = 512 - (padding * 2);
 
@@ -513,6 +517,7 @@
       if (file) {
         // Redimensiona com a margem correta para o ícone
         logoB64 = await gerarIconePwaComRespiro(file);
+        iconePwaB64 = await gerarIconePwaComRespiro(file, corHeader);
         document.getElementById('mock-logo-wrap').innerHTML = `<img src="${logoB64}">`;
         document.getElementById('thumb-logo-box').innerHTML = `<img src="${logoB64}">`;
         document.getElementById('logo-status-label').innerText = `${file.name} ajustado com respiro.`;
@@ -564,6 +569,7 @@
 
       try {
         let logoFinalUrl = lojaAtual?.logo_url || '';
+        let iconePwaFinalUrl = lojaAtual?.icone_pwa_url || '';
 
         if (logoB64 && logoB64.startsWith('data:image')) {
           const base64Data = logoB64.replace(/^data:image\/\w+;base64,/, '');
@@ -580,6 +586,18 @@
           }
         }
 
+        if (iconePwaB64 && iconePwaB64.startsWith('data:image')) {
+          const base64Data = iconePwaB64.replace(/^data:image\/\w+;base64,/, '');
+          const bytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+          const fileName = `icons/${lojaAtual?.slug || 'loja'}_${Date.now()}.png`;
+          const { error: upErr } = await supabaseClient.storage
+            .from('public-uploads')
+            .upload(fileName, bytes, { contentType: 'image/png', upsert: true });
+          if (upErr) throw upErr;
+          const { data: pubData } = supabaseClient.storage.from('public-uploads').getPublicUrl(fileName);
+          iconePwaFinalUrl = pubData.publicUrl;
+        }
+
         const slugTarget = lojaAtual?.slug || sessionStorage.getItem('saas_pre_slug') || nome.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "-").replace(/-+/g, "-");
 
         const payload = {
@@ -590,6 +608,7 @@
           cor_secundaria: corSec,
           cor_destaque: corDest,
           logo_url: logoFinalUrl,
+          icone_pwa_url: iconePwaFinalUrl,
           user_id: userIdAtual
         };
 

@@ -67,8 +67,8 @@ async function salvarArquivoNoGitHub(caminho: string, conteudoTexto: string, com
   return putRes.ok;
 }
 
-function gerarManifestoLoja(slug: string, nome: string, cor: string, logoUrl: string) {
-  const iconFinal = logoUrl || "https://bomfregues.github.io/public/img/icon-192.png";
+function gerarManifestoLoja(slug: string, nome: string, cor: string, logoUrl: string, iconePwaUrl: string) {
+  const iconFinal = iconePwaUrl || logoUrl || "https://bomfregues.github.io/public/img/background.png";
   const manifest = {
     name: nome || "Bom Freguês",
     short_name: nome || "Clube",
@@ -168,8 +168,8 @@ function gerarHtmlLoja(slug: string, nomeLoja: string, corFundo: string, logoUrl
     }
 
     .clean-logo-wrap {
-      width: 64px;
-      height: 64px;
+      width: 72px;
+      height: 72px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -181,6 +181,7 @@ function gerarHtmlLoja(slug: string, nomeLoja: string, corFundo: string, logoUrl
       max-height: 100%;
       object-fit: contain;
       display: block;
+      transform: scale(1.2);
     }
 
     .header-text-group { margin-left: 14px; }
@@ -425,7 +426,7 @@ function gerarHtmlLoja(slug: string, nomeLoja: string, corFundo: string, logoUrl
         const img = new Image();
         img.crossOrigin = "anonymous";
         img.onload = () => {
-          const padding = 120;
+          const padding = 72;
           const maxW = 512 - (padding * 2);
           const maxH = 512 - (padding * 2);
 
@@ -772,7 +773,7 @@ serve(async (req) => {
           cor_secundaria: payload.cor_secundaria,
           cor_destaque: payload.cor_destaque,
           logo_url: payload.logo_url,
-          icone_pwa_url: payload.logo_url,
+          icone_pwa_url: payload.icone_pwa_url || payload.logo_url,
           user_id: user.id
         }, { onConflict: "slug" })
         .select()
@@ -780,7 +781,7 @@ serve(async (req) => {
 
       if (error) throw error;
 
-      const manifestContent = gerarManifestoLoja(slug, loja.nome_fantasia, loja.cor_primaria, loja.logo_url);
+      const manifestContent = gerarManifestoLoja(slug, loja.nome_fantasia, loja.cor_primaria, loja.logo_url, loja.icone_pwa_url);
       await salvarArquivoNoGitHub(
         `public/lojas/${slug}/manifest.json`,
         manifestContent,

@@ -23,13 +23,13 @@ serve(async (req) => {
 
     const { data: loja } = await supabase
       .from("comercios")
-      .select("nome_fantasia, cor_primaria, logo_url")
+      .select("nome_fantasia, cor_primaria, logo_url, icone_pwa_url")
       .eq("slug", slug)
       .maybeSingle();
 
     const nome = loja?.nome_fantasia || "Bom Freguês";
     const cor = loja?.cor_primaria || "#1c1917";
-    const iconUrl = loja?.logo_url || "https://bomfregues.github.io/public/img/icon-192.png";
+    const iconUrl = loja?.icone_pwa_url || loja?.logo_url || "https://bomfregues.github.io/public/img/background.png";
 
     // URL completa e única para cada loja
     const appUrl = `https://bomfregues.github.io/public/app.html?loja=${slug}`;
