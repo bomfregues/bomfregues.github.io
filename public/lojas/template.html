@@ -345,7 +345,7 @@
 
         if ('serviceWorker' in navigator) {
           const reg = await navigator.serviceWorker.ready;
-          
+
           let sub = await reg.pushManager.getSubscription();
           if (!sub) {
             sub = await reg.pushManager.subscribe({
@@ -353,7 +353,6 @@
               applicationServerKey: urlBase64ToUint8Array(VAPID_KEY)
             });
           }
-
           if (sub && typeof Api !== 'undefined' && Api.salvarInscricaoPush) {
             await Api.salvarInscricaoPush(COMERCIO_SLUG, MEU_DEVICE_ID, sub.toJSON());
           }

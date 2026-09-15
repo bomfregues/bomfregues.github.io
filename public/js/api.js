@@ -213,9 +213,10 @@ const Api = {
           subscription: subscriptionObj
         }, { onConflict: 'comercio_slug,device_id' });
 
-      if (error) console.warn("Erro ao salvar push no Supabase:", error.message);
+      if (error) throw new Error(`Não foi possível registrar o dispositivo para push: ${error.message}`);
     } catch (e) {
-      console.warn("Exceção ao salvar push:", e);
+      console.error("Erro ao salvar push:", e);
+      throw e;
     }
   },
 
