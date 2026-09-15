@@ -456,12 +456,7 @@
     async function carregarOfertas() {
       const box = document.getElementById('lista-promos');
       try {
-        if (!supabaseClient) return;
-        const { data: promocoes } = await supabaseClient
-          .from('promocoes')
-          .select('*')
-          .eq('comercio_slug', COMERCIO_SLUG)
-          .order('criado_em', { ascending: false });
+        const promocoes = await Api.listarPromocoes(COMERCIO_SLUG);
 
         if (!promocoes || !promocoes.length) {
           box.innerHTML = `<div class="showcase-card" style="padding:28px; text-align:center; font-size:13px; color:var(--cor-subtexto);">Nenhuma promoção ativa no momento.</div>`;
