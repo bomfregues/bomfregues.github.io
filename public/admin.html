@@ -79,7 +79,7 @@
 
     .mockup-sticky { position: sticky; top: 88px; width: 100%; display: flex; flex-direction: column; align-items: center; }
     .phone-frame { width: 100%; max-width: 320px; margin: 0 auto; background: #ffffff; border: 8px solid #1c1917; border-radius: 36px; overflow: hidden; box-shadow: 0 14px 30px -8px rgba(0,0,0,0.12); min-height: 440px; display: flex; flex-direction: column; }
-    .mockup-header { padding: 24px 16px 30px; display: flex; align-items: center; gap: 12px; background-color: #ffffff; color: #0f172a; border-radius: 0 0 24px 24px; overflow: hidden; position: relative; z-index: 1; transition: background-color 0.2s ease, color 0.2s ease, border 0.2s ease; }
+    .mockup-header { padding: 24px 16px 18px; display: flex; align-items: center; gap: 12px; background-color: #ffffff; color: #0f172a; border-radius: 0 0 24px 24px; overflow: hidden; position: relative; z-index: 1; transition: background-color 0.2s ease, color 0.2s ease, border 0.2s ease; }
     .mockup-logo-free { width: 64px; height: 64px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: transparent !important; }
     .mockup-logo-free img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
     .mockup-titles div:first-child { font-size: 14px; font-weight: 800; line-height: 1.2; color: inherit; transition: color 0.2s ease; }
@@ -337,7 +337,7 @@
     let corSec = '#ffffff';
     let corDest = '#b91c1c';
 
-    let logoB64 = null, iconePwaB64 = null, promoB64 = null, premioB64 = null;
+    let logoB64 = null, iconePwaB64 = null, arquivoLogoSelecionado = null, promoB64 = null, premioB64 = null;
     const FOTO_FALLBACK = "https://images.unsplash.com/photo-1517256064527-09c73fc73e38?w=500&q=80";
 
     function calcularContrasteHeader(hexColor) {
@@ -515,6 +515,7 @@
     async function processarLogo(e) {
       const file = e.target.files[0];
       if (file) {
+        arquivoLogoSelecionado = file;
         // Redimensiona com a margem correta para o ícone
         logoB64 = await gerarIconePwaComRespiro(file);
         iconePwaB64 = await gerarIconePwaComRespiro(file, corHeader);
@@ -570,6 +571,11 @@
       try {
         let logoFinalUrl = lojaAtual?.logo_url || '';
         let iconePwaFinalUrl = lojaAtual?.icone_pwa_url || '';
+
+        if (arquivoLogoSelecionado) {
+          logoB64 = await gerarIconePwaComRespiro(arquivoLogoSelecionado);
+          iconePwaB64 = await gerarIconePwaComRespiro(arquivoLogoSelecionado, corHeader);
+        }
 
         if (logoB64 && logoB64.startsWith('data:image')) {
           const base64Data = logoB64.replace(/^data:image\/\w+;base64,/, '');

@@ -68,6 +68,8 @@
       transition: background-color 0.2s ease, border-color 0.2s ease;
     }
 
+    .top-header.compact { padding-bottom: 16px !important; }
+
     .clean-logo-wrap {
       width: 72px;
       height: 72px;
@@ -454,8 +456,11 @@
                                  (btnPush.style.display === 'flex') || 
                                  (alertaCpf && alertaCpf.style.display === 'flex');
 
+      const pwaHeader = document.getElementById('pwa-header');
+      if (pwaHeader) pwaHeader.classList.toggle('compact', !algumCardFlutuante);
+
       if (spacer) {
-        spacer.style.height = algumCardFlutuante ? '14px' : '36px';
+        spacer.style.height = algumCardFlutuante ? '14px' : '18px';
       }
     }
 

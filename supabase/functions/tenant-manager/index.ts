@@ -166,6 +166,7 @@ function gerarHtmlLoja(slug: string, nomeLoja: string, corFundo: string, logoUrl
       z-index: 1;
       transition: background-color 0.2s ease, border-color 0.2s ease;
     }
+    .top-header.compact { padding-bottom: 16px !important; }
 
     .clean-logo-wrap {
       width: 72px;
@@ -372,7 +373,9 @@ function gerarHtmlLoja(slug: string, nomeLoja: string, corFundo: string, logoUrl
       }
 
       const algumCard = (btnInstall.style.display === 'flex') || (btnPush.style.display === 'flex') || (alertaCpf && alertaCpf.style.display === 'flex');
-      if (spacer) spacer.style.height = algumCard ? '14px' : '36px';
+      const pwaHeader = document.getElementById('pwa-header');
+      if (pwaHeader) pwaHeader.classList.toggle('compact', !algumCard);
+      if (spacer) spacer.style.height = algumCard ? '14px' : '18px';
     }
 
     async function acionarInstalacao() {
